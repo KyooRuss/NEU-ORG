@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+
+# Environment variables (secret keys, never commit these)
+.env
+.env.*
+!.env.example
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

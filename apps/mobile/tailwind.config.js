@@ -4,7 +4,7 @@ module.exports = {
   presets: [require('nativewind/preset')],
   theme: {
     extend: {
-      // OrgFinder colors, taken from the Figma login designs.
+      // NEU ORG colors, taken from the Figma login designs.
       colors: {
         brand: {
           navy: '#1A2E78',

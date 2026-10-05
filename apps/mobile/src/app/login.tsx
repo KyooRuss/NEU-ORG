@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 import {
@@ -16,6 +17,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { fetchProfile, type Profile } from '@/lib/profile';
 import { supabase } from '@/lib/supabase';
 
 export default function LoginScreen() {
@@ -30,19 +32,38 @@ export default function LoginScreen() {
     }
 
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password,
     });
-    setLoading(false);
 
     if (error) {
+      setLoading(false);
       Alert.alert('Login failed', error.message);
       return;
     }
 
-    // TODO(Step 5): go to the student home screen.
-    Alert.alert('Logged in', 'Welcome to OrgFinder!');
+    // Admins (OSAS) work on the web dashboard, not the mobile app.
+    let profile: Profile | null = null;
+    try {
+      profile = await fetchProfile(data.user.id);
+    } catch {
+      profile = null;
+    }
+    setLoading(false);
+
+    if (!profile || profile.role === 'admin') {
+      await supabase.auth.signOut();
+      Alert.alert(
+        'Login not allowed',
+        profile
+          ? 'Admin accounts use the NEU ORG web dashboard.'
+          : 'Your account has no profile yet. Please contact the OSAS admin.',
+      );
+      return;
+    }
+
+    router.replace('/home');
   }
 
   return (
@@ -61,7 +82,7 @@ export default function LoginScreen() {
           style={{ height: 340 }}>
           <SafeAreaView edges={['top']} className="flex-1 justify-center px-8 pb-12">
             <Text className="font-display text-7xl text-white">Hello!</Text>
-            <Text className="font-poppins-light text-xl text-white">Welcome to OrgFinder</Text>
+            <Text className="font-poppins-light text-xl text-white">Welcome to NEU ORG</Text>
           </SafeAreaView>
         </LinearGradient>
 

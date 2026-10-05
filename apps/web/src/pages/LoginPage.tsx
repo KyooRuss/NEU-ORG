@@ -3,17 +3,24 @@ import { useState } from 'react'
 
 import { supabase } from '../lib/supabase'
 
-export default function LoginPage() {
+type LoginPageProps = {
+  // A message from App, e.g. when a student tries to open the dashboard.
+  notice: string | null
+  onDismissNotice: () => void
+}
+
+export default function LoginPage({ notice, onDismissNotice }: LoginPageProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [signedInAs, setSignedInAs] = useState<string | null>(null)
 
+  // On success, App notices the new session and shows the dashboard.
   async function handleLogin() {
     setError(null)
+    onDismissNotice()
     setLoading(true)
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password,
     })
@@ -21,28 +28,31 @@ export default function LoginPage() {
 
     if (error) {
       setError(error.message)
-      return
     }
-
-    // TODO(Step 5): go to the dashboard based on the user's role.
-    setSignedInAs(data.user.email ?? email)
   }
+
+  const message = error ?? notice
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-linear-to-r from-brand-navy to-brand-blue px-4 py-10">
       <div className="w-full max-w-md rounded-xl bg-surface px-8 py-12 shadow-2xl sm:px-12">
-        <div className="mb-10 flex items-center justify-center gap-1">
-          {/* TODO: replace with the OrgFinder logo image. */}
-          <div
-            aria-hidden="true"
-            className="size-12 shrink-0 rounded-full bg-linear-to-br from-violet-500 via-brand-blue to-sky-400"
-          />
-          <div>
-            <p className="text-4xl leading-none font-bold tracking-tight text-brand-navy">
-              RGFINDER
-            </p>
-            <p className="mt-1 text-[11px] text-zinc-600">Manage and Track Organizations</p>
-          </div>
+        <div className="mb-10 text-center">
+          {/* The logo stands in for the "O" in "NEU ORG". */}
+          <h1
+            aria-label="NEU ORG"
+            className="flex items-center justify-center text-4xl leading-none font-bold tracking-tight text-brand-navy"
+          >
+            <span aria-hidden="true">NEU</span>
+            <img
+              src="/images/neu-org-logo.png"
+              alt=""
+              width={44}
+              height={44}
+              className="ml-2 size-11 shrink-0"
+            />
+            <span aria-hidden="true">RG</span>
+          </h1>
+          <p className="mt-2 text-[11px] text-zinc-600">Manage and Track Organizations</p>
         </div>
 
         <form
@@ -88,14 +98,9 @@ export default function LoginPage() {
             </button>
           </div>
 
-          {error && (
+          {message && (
             <p role="alert" className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-              {error}
-            </p>
-          )}
-          {signedInAs && (
-            <p className="mt-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
-              Signed in as {signedInAs}
+              {message}
             </p>
           )}
 
@@ -110,4 +115,4 @@ export default function LoginPage() {
       </div>
     </main>
   )
-}
+} 

@@ -1,0 +1,11 @@
+{
+  "name": "neu-org",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "seed:users": "node --env-file=.env supabase/scripts/seed-users.mjs"
+  },
+  "devDependencies": {
+    "@supabase/supabase-js": "^2.117.2"
+  }
+}

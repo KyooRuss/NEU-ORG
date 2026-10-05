@@ -1,3 +1,6 @@
+ahahaha jennieeeeee 
+
+
 # NEU ORG
 
 A mobile app and web dashboard for discovering, joining and following student organizations at the New Era University Main Campus.

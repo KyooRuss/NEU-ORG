@@ -1,15 +1,18 @@
 import './local-storage';
 
 import { createClient } from '@supabase/supabase-js';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
 const supabasePublishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
 
+// True while Expo pre-renders web pages in Node. Checking `window` instead of
+// `localStorage`, because Node 25+ has its own broken `localStorage` global.
+const isServer = Platform.OS === 'web' && typeof window === 'undefined';
+
 export const supabase = createClient(supabaseUrl, supabasePublishableKey, {
   auth: {
-    // Undefined while Expo pre-renders web pages on the server.
-    storage: typeof localStorage === 'undefined' ? undefined : localStorage,
+    storage: isServer ? undefined : localStorage,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,

@@ -1,8 +1,10 @@
-import { CirclePause, CirclePlay, ListFilter, Search, X } from 'lucide-react'
+import { CirclePause, CirclePlay, ListFilter, Search, UserPlus, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
+import AssignPresidentModal from '../components/AssignPresidentModal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import IconButton from '../components/IconButton'
+import { primaryButton } from '../components/Modal'
 import { SampleDataNotice, StatusRow } from '../components/OrganizationsOverview'
 import { fetchOfficers, type Officer, type OfficerStatus, setOfficerStatus, usingSampleOfficers } from '../lib/officers'
 
@@ -22,6 +24,7 @@ export default function AdminOfficersPage() {
   const [showFilters, setShowFilters] = useState(false)
   // The officer whose status is about to change.
   const [toggling, setToggling] = useState<Officer | null>(null)
+  const [assigning, setAssigning] = useState(false)
   const [sample, setSample] = useState(false)
 
   useEffect(() => {
@@ -60,9 +63,22 @@ export default function AdminOfficersPage() {
 
   return (
     <>
-      <header>
-        <h1 className="text-2xl font-semibold text-brand-navy">Admin Officers</h1>
-        <p className="mt-1 text-sm text-zinc-500">Manage and track all admin officers</p>
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-brand-navy">Admin Officers</h1>
+          <p className="mt-1 text-sm text-zinc-500">Manage and track all admin officers</p>
+        </div>
+        {!sample && (
+          <button
+            type="button"
+            onClick={() => setAssigning(true)}
+            disabled={officers === null}
+            className={`flex items-center gap-2 ${primaryButton}`}
+          >
+            <UserPlus size={16} aria-hidden="true" />
+            Assign president
+          </button>
+        )}
       </header>
 
       {sample && (
@@ -223,7 +239,7 @@ export default function AdminOfficersPage() {
                   officers !== null && shown.length === 0
                     ? narrowed
                       ? 'No admin officers match your search or filters.'
-                      : 'No admin officers yet. Officers show here once they are linked to an organization.'
+                      : 'No admin officers yet. Use Assign president to make a student the president of an organization.'
                     : null
                 }
               />
@@ -232,12 +248,20 @@ export default function AdminOfficersPage() {
         </div>
       </section>
 
+      {assigning && (
+        <AssignPresidentModal
+          officers={officers ?? []}
+          onClose={() => setAssigning(false)}
+          onAssigned={() => setReloadKey((key) => key + 1)}
+        />
+      )}
+
       {toggling && (
         <ConfirmDialog
           {...(toggling.status === 'active'
             ? {
                 title: 'Deactivate officer?',
-                message: `${toggling.name} (${toggling.admin_no}) will be marked Inactive for ${toggling.organization_name}. You can reactivate them anytime.`,
+                message: `${toggling.name} (${toggling.admin_no}) will be marked Inactive for ${toggling.organization_name} and lose officer access unless they lead another organization. You can reactivate them while the organization has no other active president.`,
                 confirmLabel: 'Deactivate',
                 danger: true,
               }

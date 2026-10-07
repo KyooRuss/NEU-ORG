@@ -24,6 +24,7 @@ import { countPendingEvents } from '../lib/events'
 import { fetchOrganizations } from '../lib/organizations'
 import type { Profile } from '../lib/profile'
 import { supabase } from '../lib/supabase'
+import ApprovedEventsPage from './ApprovedEventsPage'
 import EventRequestsPage from './EventRequestsPage'
 import TrashPage from './TrashPage'
 
@@ -306,10 +307,7 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
                 onReviewed={() => setBadgeKey((key) => key + 1)}
               />
             ) : (
-              // Upcoming and Past Events come in the next step.
-              <section className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-zinc-200">
-                <h1 className="text-xl font-bold text-brand-navy">{page}</h1>
-              </section>
+              <ApprovedEventsPage key={page} timing={page === 'Past Events' ? 'past' : 'upcoming'} />
             )}
           </>
         ) : page === 'Trash' ? (

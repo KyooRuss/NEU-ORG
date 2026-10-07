@@ -110,22 +110,58 @@ export async function fetchOfficers(): Promise<Officer[]> {
   return [...sampleStore].sort((a, b) => a.admin_no.localeCompare(b.admin_no))
 }
 
+// Goes through the set_officer_status database function, which also updates the
+// person's role. Reactivating fails while the organization has another active president.
 export async function setOfficerStatus(id: string, status: OfficerStatus) {
   if (sampleStore) {
     findSample(id).status = status
     return
   }
 
-  const { data, error } = await supabase
-    .from('officers')
-    .update({ status })
-    .eq('id', id)
-    .select('id')
+  const { error } = await supabase.rpc('set_officer_status', { target_officer: id, new_status: status })
   if (error) throw new Error(error.message)
-  if (data.length === 0) throw notFound()
 }
 
-// Row-level security hides rows instead of raising an error, so 0 rows means "not allowed or gone".
+// Makes the student the active president of the organization. The current
+// president, if any, becomes inactive and loses officer access.
+export async function assignPresident(profileId: string, organizationId: string) {
+  if (sampleStore) throw new Error('Run the database migrations first. Presidents can’t be assigned on sample data.')
+
+  const { error } = await supabase.rpc('assign_president', { target_profile: profileId, target_org: organizationId })
+  if (error) throw new Error(error.message)
+}
+
+// ---------------------------------------------------------------------------
+// Picking a student to make president.
+// ---------------------------------------------------------------------------
+
+export type PresidentCandidate = {
+  id: string
+  name: string
+  email: string
+  student_no: string | null
+}
+
+// Active student and officer accounts whose name, email or student number contains
+// the query. Officers are included because one person can lead more than one organization.
+export async function searchPresidentCandidates(query: string): Promise<PresidentCandidate[]> {
+  // Commas and brackets would break the "or" filter below; % and * are wildcards.
+  const text = query.replace(/[,()%*\\]/g, ' ').trim()
+  if (!text) return []
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, full_name, email, student_no')
+    .in('role', ['student', 'officer'])
+    .eq('status', 'active')
+    .or(`full_name.ilike.%${text}%,email.ilike.%${text}%,student_no.ilike.%${text}%`)
+    .order('full_name')
+    .limit(10)
+
+  if (error) throw new Error(error.message)
+  return data.map(({ full_name, ...row }) => ({ ...row, name: full_name || row.email }))
+}
+
 function notFound() {
   return new Error('This officer was not found, or your account is not allowed to change it.')
 }

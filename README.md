@@ -140,8 +140,19 @@ The root `.env` (copied from `.env.example`) holds the Supabase secret key, the 
 
 ```powershell
 npm install               # once, for the seed script
-npm run seed:users        # create or reset the three test accounts
-npx supabase db push      # apply new migrations to the shared database
+npx supabase db push      # apply new migrations to the shared database (run this first)
+npm run seed:users        # create or reset the demo organizations and accounts
 ```
 
-`npm run seed:users` is safe to run again: it updates existing accounts instead of duplicating them.
+`npm run seed:users` is safe to run again: it updates existing records instead of duplicating them, and puts the demo accounts back to their starting state. It creates:
+
+| Account | Role | Password from `.env` | Notes |
+|---|---|---|---|
+| `admin@neuorg.test` | Admin | `SEED_ADMIN_PASSWORD` | |
+| `officer@neuorg.test` | Officer | `SEED_OFFICER_PASSWORD` | President of Cybersecurity Alliance |
+| `officer2@neuorg.test` | Officer | `SEED_OFFICER_PASSWORD` | President of Code Innovators Guild |
+| `student@neuorg.test` – `student4@neuorg.test` | Student | `SEED_STUDENT_PASSWORD` | `student4` is suspended |
+
+It also creates three organizations if they don't exist. NEU Debate Society is left without a president, for demoing **Assign president**. If an organization already has a real president, the seeder leaves them in place and doesn't link the demo officer.
+
+Real users will sign in with Google instead. They start as students, and an admin makes them a president under Users > Admin Officers.

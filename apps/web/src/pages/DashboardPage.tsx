@@ -27,6 +27,7 @@ import { supabase } from '../lib/supabase'
 import AdminOfficersPage from './AdminOfficersPage'
 import ApprovedEventsPage from './ApprovedEventsPage'
 import EventRequestsPage from './EventRequestsPage'
+import StudentsPage from './StudentsPage'
 import TrashPage from './TrashPage'
 
 // An item with children opens a submenu; each child is its own page.
@@ -48,7 +49,7 @@ const adminNav: NavItem[] = [
 ]
 
 // The admin pages that exist so far (besides Dashboard).
-const adminPages = ['Organizations', 'Trash', 'Admin Officers', ...EVENT_PAGES]
+const adminPages = ['Organizations', 'Trash', ...USER_PAGES, ...EVENT_PAGES]
 
 // Below Tailwind's "md" breakpoint the sidebar becomes a row, so submenus don't fit.
 const isPhone = () => window.matchMedia('(max-width: 767px)').matches
@@ -315,6 +316,8 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
           </>
         ) : page === 'Admin Officers' ? (
           <AdminOfficersPage />
+        ) : page === 'Students' ? (
+          <StudentsPage />
         ) : page === 'Trash' ? (
           <TrashPage />
         ) : page === 'Organizations' ? (

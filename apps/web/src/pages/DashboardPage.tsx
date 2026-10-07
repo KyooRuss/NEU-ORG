@@ -2,6 +2,7 @@ import {
   Bell,
   Building2,
   CalendarDays,
+  ChevronDown,
   ClipboardCheck,
   LayoutDashboard,
   LogOut,
@@ -19,24 +20,36 @@ import { useEffect, useState } from 'react'
 import MemorandumPanel from '../components/MemorandumPanel'
 import OrganizationsOverview from '../components/OrganizationsOverview'
 import { RecentEvents, RecentOrganizations } from '../components/RecentlyAdded'
+import { countPendingEvents, countUpcomingEvents } from '../lib/events'
 import { fetchOrganizations } from '../lib/organizations'
 import type { Profile } from '../lib/profile'
 import { supabase } from '../lib/supabase'
+import ApprovedEventsPage from './ApprovedEventsPage'
+import EventRequestsPage from './EventRequestsPage'
 import TrashPage from './TrashPage'
 
-type NavItem = { label: string; icon: LucideIcon }
+// An item with children opens a submenu; each child is its own page.
+type NavItem = { label: string; icon: LucideIcon; children?: string[] }
 type StatCard = { key: string; label: string; hint: string; icon: LucideIcon }
 type Stats = Record<string, number | null>
+
+const EVENT_PAGES = ['Event Requests', 'Upcoming Events', 'Past Events']
 
 // Sample menus for now; each item becomes a real page in later steps.
 const adminNav: NavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard },
   { label: 'Organizations', icon: Building2 },
-  { label: 'Event Requests', icon: ClipboardCheck },
+  { label: 'Events', icon: CalendarDays, children: EVENT_PAGES },
   { label: 'Users', icon: Users },
   { label: 'Memorandums', icon: Megaphone },
   { label: 'Trash', icon: Trash2 },
 ]
+
+// The admin pages that exist so far (besides Dashboard).
+const adminPages = ['Organizations', 'Trash', ...EVENT_PAGES]
+
+// Below Tailwind's "md" breakpoint the sidebar becomes a row, so submenus don't fit.
+const isPhone = () => window.matchMedia('(max-width: 767px)').matches
 
 const officerNav: NavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard },
@@ -49,9 +62,9 @@ const officerNav: NavItem[] = [
 
 const adminStats: StatCard[] = [
   { key: 'organizations', label: 'Organizations', hint: 'Verified Main Campus Orgs', icon: Users },
-  { key: 'pendingEvents', label: 'Pending Event Requests', hint: 'Waiting for your approval', icon: ClipboardCheck },
+  { key: 'pendingEvents', label: 'Pending Event Requests', hint: 'Waiting for your review', icon: ClipboardCheck },
   { key: 'students', label: 'Students', hint: 'Registered accounts', icon: UserRound },
-  { key: 'upcomingEvents', label: 'Upcoming Events', hint: 'Approved this month', icon: CalendarDays },
+  { key: 'upcomingEvents', label: 'Upcoming Events', hint: 'Approved and not yet ended', icon: CalendarDays },
 ]
 
 const officerStats: StatCard[] = [
@@ -61,10 +74,9 @@ const officerStats: StatCard[] = [
   { key: 'rating', label: 'Average rating', hint: 'From event feedback', icon: MessageSquareText },
 ]
 
-// Counts for the admin stat cards. Events aren't stored in Supabase yet, so
-// those two stay empty (shown as "—") until the events table exists.
+// Counts for the admin stat cards. A count that fails to load shows as "—".
 async function fetchAdminStats(): Promise<Stats> {
-  const [organizations, students] = await Promise.all([
+  const [organizations, students, pendingEvents, upcomingEvents] = await Promise.all([
     fetchOrganizations('active')
       .then((orgs) => orgs.length)
       .catch(() => null),
@@ -73,8 +85,10 @@ async function fetchAdminStats(): Promise<Stats> {
       .select('id', { count: 'exact', head: true })
       .eq('role', 'student')
       .then(({ count, error }) => (error ? null : count)),
+    countPendingEvents().catch(() => null),
+    countUpcomingEvents().catch(() => null),
   ])
-  return { organizations, students, pendingEvents: null, upcomingEvents: null }
+  return { organizations, students, pendingEvents, upcomingEvents }
 }
 
 export default function DashboardPage({ profile }: { profile: Profile }) {
@@ -87,17 +101,45 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
   const [pinned, setPinned] = useState(false)
   const [hovered, setHovered] = useState(false)
   const collapsed = !pinned && !hovered
-  // Which sidebar page is open. Only Dashboard and (for admins) Organizations and Trash exist so far.
+  // Which sidebar page is open. Only Dashboard and (for admins) the pages in adminPages exist so far.
   const [page, setPage] = useState('Dashboard')
+  // Which submenu is open, by its parent's label.
+  const [openGroup, setOpenGroup] = useState<string | null>(null)
   const openPage = (label: string) => {
-    if (label === 'Dashboard' || (isAdmin && (label === 'Organizations' || label === 'Trash'))) {
+    if (label === 'Dashboard' || (isAdmin && adminPages.includes(label))) {
       setPage(label)
+      // Keep the submenu of the page's group open, so the admin sees where they are.
+      setOpenGroup(nav.find((item) => item.children?.includes(label))?.label ?? null)
     }
     // Shrink the menu once a page is picked; it grows again when the mouse comes back.
     setPinned(false)
     setHovered(false)
   }
+  // A parent opens or closes its submenu. When the menu is only icons, or on phones,
+  // there's no room for one, so it goes straight to the first page instead.
+  const openGroupItem = (item: NavItem) => {
+    if (collapsed || isPhone()) openPage(item.children![0])
+    else setOpenGroup((current) => (current === item.label ? null : item.label))
+  }
   const [counts, setCounts] = useState<Stats>({})
+  // Pending event requests, for the badge on the Events menu.
+  const [pendingEvents, setPendingEvents] = useState<number | null>(null)
+  // Bumped after the admin reviews a request, so the badge reloads right away.
+  const [badgeKey, setBadgeKey] = useState(0)
+
+  // Reload the badge whenever the admin moves to another page or reviews a request.
+  useEffect(() => {
+    if (!isAdmin) return
+    let cancelled = false
+    countPendingEvents()
+      .then((count) => {
+        if (!cancelled) setPendingEvents(count)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [isAdmin, page])
 
   // Reload the counts each time the admin comes back to the Dashboard.
   useEffect(() => {
@@ -109,7 +151,7 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
     return () => {
       cancelled = true
     }
-  }, [isAdmin, page])
+  }, [isAdmin, page, badgeKey])
 
   return (
     <div className="flex min-h-screen flex-col bg-surface md:flex-row">
@@ -157,21 +199,79 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
               collapsed ? 'hidden' : 'flex'
             }`}
           >
-            {nav.map(({ label, icon: Icon }) => (
-              <button
-                key={label}
-                type="button"
-                onClick={() => openPage(label)}
-                title={collapsed ? label : undefined}
-                aria-current={label === page ? 'page' : undefined}
-                className={`flex shrink-0 items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-white/80 transition hover:bg-white/10 hover:text-white aria-[current=page]:bg-white/15 aria-[current=page]:font-semibold aria-[current=page]:text-white ${
-                  collapsed ? 'md:justify-center' : ''
-                }`}
-              >
-                <Icon size={18} className="shrink-0" aria-hidden="true" />
-                <span className={`whitespace-nowrap ${collapsed ? 'md:sr-only' : ''}`}>{label}</span>
-              </button>
-            ))}
+            {nav.map((item) => {
+              const { label, icon: Icon, children } = item
+              const badge = label === 'Events' ? pendingEvents : null
+
+              if (!children) {
+                return (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => openPage(label)}
+                    title={collapsed ? label : undefined}
+                    aria-current={label === page ? 'page' : undefined}
+                    className={`flex shrink-0 items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-white/80 transition hover:bg-white/10 hover:text-white aria-[current=page]:bg-white/15 aria-[current=page]:font-semibold aria-[current=page]:text-white ${
+                      collapsed ? 'md:justify-center' : ''
+                    }`}
+                  >
+                    <Icon size={18} className="shrink-0" aria-hidden="true" />
+                    <span className={`whitespace-nowrap ${collapsed ? 'md:sr-only' : ''}`}>{label}</span>
+                  </button>
+                )
+              }
+
+              const open = !collapsed && openGroup === label
+              const holdsPage = children.includes(page)
+              return (
+                <div key={label} className="flex shrink-0 flex-col gap-1">
+                  <button
+                    type="button"
+                    onClick={() => openGroupItem(item)}
+                    title={collapsed ? label : undefined}
+                    aria-expanded={open}
+                    aria-controls={`submenu-${label}`}
+                    className={`relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition hover:bg-white/10 hover:text-white ${
+                      collapsed ? 'md:justify-center' : ''
+                    } ${holdsPage ? 'font-semibold text-white' : 'text-white/80'} ${
+                      // While its submenu is open, the highlighted child shows the page instead.
+                      holdsPage && !open ? 'bg-white/15' : ''
+                    }`}
+                  >
+                    <Icon size={18} className="shrink-0" aria-hidden="true" />
+                    <span className={`whitespace-nowrap ${collapsed ? 'md:sr-only' : ''}`}>{label}</span>
+                    <CountBadge
+                      count={badge}
+                      className={collapsed ? 'md:absolute md:top-1 md:right-2 md:ml-0' : ''}
+                    />
+                    <ChevronDown
+                      size={16}
+                      aria-hidden="true"
+                      className={`shrink-0 transition-transform max-md:hidden ${badge ? '' : 'ml-auto'} ${
+                        open ? 'rotate-180' : ''
+                      } ${collapsed ? 'md:hidden' : ''}`}
+                    />
+                  </button>
+
+                  {open && (
+                    <div id={`submenu-${label}`} className="hidden flex-col gap-1 md:flex">
+                      {children.map((child) => (
+                        <button
+                          key={child}
+                          type="button"
+                          onClick={() => openPage(child)}
+                          aria-current={child === page ? 'page' : undefined}
+                          className="flex items-center gap-3 rounded-lg py-2 pr-3 pl-10.5 text-left text-sm whitespace-nowrap text-white/75 transition hover:bg-white/10 hover:text-white aria-[current=page]:bg-white/15 aria-[current=page]:font-semibold aria-[current=page]:text-white"
+                        >
+                          {child}
+                          {child === 'Event Requests' && <CountBadge count={badge} />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </nav>
 
           <button
@@ -199,7 +299,19 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
           Log out
         </button>
 
-        {page === 'Trash' ? (
+        {EVENT_PAGES.includes(page) ? (
+          <>
+            <EventPageTabs page={page} pendingCount={pendingEvents} onOpen={openPage} />
+            {page === 'Event Requests' ? (
+              <EventRequestsPage
+                pendingCount={pendingEvents}
+                onReviewed={() => setBadgeKey((key) => key + 1)}
+              />
+            ) : (
+              <ApprovedEventsPage key={page} timing={page === 'Past Events' ? 'past' : 'upcoming'} />
+            )}
+          </>
+        ) : page === 'Trash' ? (
           <TrashPage />
         ) : page === 'Organizations' ? (
           <OrganizationsOverview />
@@ -268,5 +380,48 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
         )}
       </main>
     </div>
+  )
+}
+
+// A small count bubble. Hidden while there's nothing to count.
+function CountBadge({ count, className = '' }: { count: number | null; className?: string }) {
+  if (!count) return null
+  return (
+    <span
+      className={`ml-auto flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-white px-1.5 text-xs font-semibold text-brand-navy ${className}`}
+    >
+      {count > 99 ? '99+' : count}
+      <span className="sr-only"> pending</span>
+    </span>
+  )
+}
+
+// On phones the sidebar has no submenu, so the event pages switch with these tabs.
+function EventPageTabs({
+  page,
+  pendingCount,
+  onOpen,
+}: {
+  page: string
+  pendingCount: number | null
+  onOpen: (label: string) => void
+}) {
+  return (
+    <nav aria-label="Event pages" className="mb-4 flex gap-1 overflow-x-auto rounded-xl bg-white p-1 shadow-sm ring-1 ring-zinc-200 md:hidden">
+      {EVENT_PAGES.map((label) => (
+        <button
+          key={label}
+          type="button"
+          onClick={() => onOpen(label)}
+          aria-current={label === page ? 'page' : undefined}
+          className="flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm whitespace-nowrap text-zinc-600 transition hover:bg-zinc-100 aria-[current=page]:bg-brand-navy aria-[current=page]:font-semibold aria-[current=page]:text-white"
+        >
+          {label}
+          {label === 'Event Requests' && !!pendingCount && (
+            <span className="rounded-full bg-brand-blue/15 px-1.5 text-xs font-semibold">{pendingCount}</span>
+          )}
+        </button>
+      ))}
+    </nav>
   )
 }

@@ -53,6 +53,23 @@ export function posterUrl(path: string | null): string | null {
   return supabase.storage.from(EVENT_BUCKET).getPublicUrl(path).data.publicUrl
 }
 
+const dayFormat = new Intl.DateTimeFormat('en-PH', { dateStyle: 'medium' })
+const timeFormat = new Intl.DateTimeFormat('en-PH', { timeStyle: 'short' })
+
+// "Oct 21, 2026 · 9:00 AM – 4:00 PM", or both dates when it spans several days.
+export function formatEventDate(event: Pick<OrgEvent, 'starts_at' | 'ends_at'>) {
+  const start = new Date(event.starts_at)
+  const end = new Date(event.ends_at)
+  if (start.toDateString() === end.toDateString()) {
+    return `${dayFormat.format(start)} · ${timeFormat.format(start)} – ${timeFormat.format(end)}`
+  }
+  return `${dayFormat.format(start)}, ${timeFormat.format(start)} – ${dayFormat.format(end)}, ${timeFormat.format(end)}`
+}
+
+export function formatDay(iso: string) {
+  return dayFormat.format(new Date(iso))
+}
+
 // True when a pending request came back from the officers after a revision.
 export function isResubmitted(event: OrgEvent) {
   return event.status === 'pending' && event.comment_count > 0

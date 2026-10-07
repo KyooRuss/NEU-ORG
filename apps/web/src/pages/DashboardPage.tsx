@@ -24,6 +24,7 @@ import { countPendingEvents } from '../lib/events'
 import { fetchOrganizations } from '../lib/organizations'
 import type { Profile } from '../lib/profile'
 import { supabase } from '../lib/supabase'
+import EventRequestsPage from './EventRequestsPage'
 import TrashPage from './TrashPage'
 
 // An item with children opens a submenu; each child is its own page.
@@ -121,8 +122,10 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
   const [counts, setCounts] = useState<Stats>({})
   // Pending event requests, for the badge on the Events menu.
   const [pendingEvents, setPendingEvents] = useState<number | null>(null)
+  // Bumped after the admin reviews a request, so the badge reloads right away.
+  const [badgeKey, setBadgeKey] = useState(0)
 
-  // Reload the badge whenever the admin moves to another page.
+  // Reload the badge whenever the admin moves to another page or reviews a request.
   useEffect(() => {
     if (!isAdmin) return
     let cancelled = false
@@ -146,7 +149,7 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
     return () => {
       cancelled = true
     }
-  }, [isAdmin, page])
+  }, [isAdmin, page, badgeKey])
 
   return (
     <div className="flex min-h-screen flex-col bg-surface md:flex-row">
@@ -297,10 +300,17 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
         {EVENT_PAGES.includes(page) ? (
           <>
             <EventPageTabs page={page} pendingCount={pendingEvents} onOpen={openPage} />
-            {/* The pages themselves come in the next steps. */}
-            <section className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-zinc-200">
-              <h1 className="text-xl font-bold text-brand-navy">{page}</h1>
-            </section>
+            {page === 'Event Requests' ? (
+              <EventRequestsPage
+                pendingCount={pendingEvents}
+                onReviewed={() => setBadgeKey((key) => key + 1)}
+              />
+            ) : (
+              // Upcoming and Past Events come in the next step.
+              <section className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-zinc-200">
+                <h1 className="text-xl font-bold text-brand-navy">{page}</h1>
+              </section>
+            )}
           </>
         ) : page === 'Trash' ? (
           <TrashPage />

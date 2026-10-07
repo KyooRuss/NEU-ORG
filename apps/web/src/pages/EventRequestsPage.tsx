@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 
+import EventFilters from '../components/EventFilters'
 import EventReviewModal from '../components/EventReviewModal'
 import EventTable, { SampleEventsNotice } from '../components/EventTable'
+import { type EventFilterValues, filterEvents, hasFilters, NO_FILTERS } from '../lib/eventFilters'
 import { fetchEventRequests, formatDay, type OrgEvent, type RequestTab, usingSampleEvents } from '../lib/events'
 
 const TABS: { value: RequestTab; label: string; empty: string; dateColumn: string }[] = [
@@ -41,6 +43,8 @@ export default function EventRequestsPage({
   const [reloadKey, setReloadKey] = useState(0)
   const [sample, setSample] = useState(false)
   const [reviewing, setReviewing] = useState<OrgEvent | null>(null)
+  // Kept when switching tabs, so the admin can follow one organization across them.
+  const [filters, setFilters] = useState<EventFilterValues>(NO_FILTERS)
 
   useEffect(() => {
     let cancelled = false
@@ -61,6 +65,7 @@ export default function EventRequestsPage({
 
   const reload = () => setReloadKey((key) => key + 1)
   const current = TABS.find((item) => item.value === tab)!
+  const shown = events && filterEvents(events, filters)
 
   function selectTab(next: RequestTab) {
     if (next === tab) return
@@ -78,6 +83,7 @@ export default function EventRequestsPage({
             Approve a request once it has been approved offline, or send it back with comments.
           </p>
         </div>
+        <EventFilters events={events} filters={filters} onChange={setFilters} />
       </div>
 
       <div role="tablist" aria-label="Request status" className="flex gap-1 overflow-x-auto px-6">
@@ -108,9 +114,9 @@ export default function EventRequestsPage({
 
       <div className={sample ? 'mt-4' : ''}>
         <EventTable
-          events={events}
+          events={shown}
           error={loadError}
-          empty={current.empty}
+          empty={hasFilters(filters) ? 'No requests match your search or filters.' : current.empty}
           dateColumn={{
             label: current.dateColumn,
             // For Revision and Declined show the request's latest change.

@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 
+import EventFilters from '../components/EventFilters'
 import EventReviewModal from '../components/EventReviewModal'
 import EventTable, { SampleEventsNotice } from '../components/EventTable'
+import { type EventFilterValues, filterEvents, hasFilters, NO_FILTERS } from '../lib/eventFilters'
 import { type EventTiming, fetchApprovedEvents, formatDay, type OrgEvent, usingSampleEvents } from '../lib/events'
 
 const PAGES: Record<EventTiming, { title: string; description: string; empty: string }> = {
@@ -24,6 +26,7 @@ export default function ApprovedEventsPage({ timing }: { timing: EventTiming }) 
   const [reloadKey, setReloadKey] = useState(0)
   const [sample, setSample] = useState(false)
   const [viewing, setViewing] = useState<OrgEvent | null>(null)
+  const [filters, setFilters] = useState<EventFilterValues>(NO_FILTERS)
 
   useEffect(() => {
     let cancelled = false
@@ -43,15 +46,22 @@ export default function ApprovedEventsPage({ timing }: { timing: EventTiming }) 
   }, [timing, reloadKey])
 
   const { title, description, empty } = PAGES[timing]
+  const filtering = hasFilters(filters)
+  const shown = events && filterEvents(events, filters)
 
   return (
     <section className="rounded-xl bg-white shadow-sm ring-1 ring-zinc-200">
-      <div className="p-6">
-        <h1 className="font-semibold text-brand-navy">{title}</h1>
-        <p className="mt-1 text-sm text-zinc-500">
-          {description} Total:{' '}
-          <span className="font-semibold text-brand-navy">{events?.length ?? '—'}</span>
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-4 p-6">
+        <div>
+          <h1 className="font-semibold text-brand-navy">{title}</h1>
+          <p className="mt-1 text-sm text-zinc-500">
+            {description} {filtering ? 'Showing' : 'Total'}:{' '}
+            <span className="font-semibold text-brand-navy">
+              {shown ? (filtering ? `${shown.length} of ${events!.length}` : shown.length) : '—'}
+            </span>
+          </p>
+        </div>
+        <EventFilters events={events} filters={filters} onChange={setFilters} />
       </div>
 
       {sample && (
@@ -61,9 +71,9 @@ export default function ApprovedEventsPage({ timing }: { timing: EventTiming }) 
       )}
 
       <EventTable
-        events={events}
+        events={shown}
         error={loadError}
-        empty={empty}
+        empty={filtering ? 'No events match your search or filters.' : empty}
         dateColumn={{
           label: 'Approved',
           value: (event) => (event.approved_at ? formatDay(event.approved_at) : '—'),

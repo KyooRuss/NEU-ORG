@@ -20,7 +20,7 @@ import { useEffect, useState } from 'react'
 import MemorandumPanel from '../components/MemorandumPanel'
 import OrganizationsOverview from '../components/OrganizationsOverview'
 import { RecentEvents, RecentOrganizations } from '../components/RecentlyAdded'
-import { countPendingEvents } from '../lib/events'
+import { countPendingEvents, countUpcomingEvents } from '../lib/events'
 import { fetchOrganizations } from '../lib/organizations'
 import type { Profile } from '../lib/profile'
 import { supabase } from '../lib/supabase'
@@ -62,9 +62,9 @@ const officerNav: NavItem[] = [
 
 const adminStats: StatCard[] = [
   { key: 'organizations', label: 'Organizations', hint: 'Verified Main Campus Orgs', icon: Users },
-  { key: 'pendingEvents', label: 'Pending Event Requests', hint: 'Waiting for your approval', icon: ClipboardCheck },
+  { key: 'pendingEvents', label: 'Pending Event Requests', hint: 'Waiting for your review', icon: ClipboardCheck },
   { key: 'students', label: 'Students', hint: 'Registered accounts', icon: UserRound },
-  { key: 'upcomingEvents', label: 'Upcoming Events', hint: 'Approved this month', icon: CalendarDays },
+  { key: 'upcomingEvents', label: 'Upcoming Events', hint: 'Approved and not yet ended', icon: CalendarDays },
 ]
 
 const officerStats: StatCard[] = [
@@ -74,10 +74,9 @@ const officerStats: StatCard[] = [
   { key: 'rating', label: 'Average rating', hint: 'From event feedback', icon: MessageSquareText },
 ]
 
-// Counts for the admin stat cards. Events aren't stored in Supabase yet, so
-// those two stay empty (shown as "—") until the events table exists.
+// Counts for the admin stat cards. A count that fails to load shows as "—".
 async function fetchAdminStats(): Promise<Stats> {
-  const [organizations, students] = await Promise.all([
+  const [organizations, students, pendingEvents, upcomingEvents] = await Promise.all([
     fetchOrganizations('active')
       .then((orgs) => orgs.length)
       .catch(() => null),
@@ -86,8 +85,10 @@ async function fetchAdminStats(): Promise<Stats> {
       .select('id', { count: 'exact', head: true })
       .eq('role', 'student')
       .then(({ count, error }) => (error ? null : count)),
+    countPendingEvents().catch(() => null),
+    countUpcomingEvents().catch(() => null),
   ])
-  return { organizations, students, pendingEvents: null, upcomingEvents: null }
+  return { organizations, students, pendingEvents, upcomingEvents }
 }
 
 export default function DashboardPage({ profile }: { profile: Profile }) {

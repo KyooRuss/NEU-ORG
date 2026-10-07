@@ -265,6 +265,48 @@ export async function countPendingEvents(): Promise<number> {
   return sampleStore!.filter((event) => event.status === 'pending').length
 }
 
+// For the dashboard card: approved events that haven't ended, same as the Upcoming Events page.
+export async function countUpcomingEvents(): Promise<number> {
+  const now = new Date().toISOString()
+
+  if (!sampleStore) {
+    const { count, error } = await supabase
+      .from('events')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'approved')
+      .gte('ends_at', now)
+
+    if (!error) return count ?? 0
+    await ensureSampleStore(error)
+  }
+
+  return sampleStore!.filter((event) => event.status === 'approved' && event.ends_at >= now).length
+}
+
+// For the dashboard's "Recently Added Events": approved since the 1st of this month, newest first.
+export async function fetchEventsApprovedThisMonth(): Promise<OrgEvent[]> {
+  const monthStart = new Date()
+  monthStart.setDate(1)
+  monthStart.setHours(0, 0, 0, 0)
+  const since = monthStart.toISOString()
+
+  if (!sampleStore) {
+    const { data, error } = await supabase
+      .from('events')
+      .select(EVENT_COLUMNS)
+      .eq('status', 'approved')
+      .gte('approved_at', since)
+      .order('approved_at', { ascending: false })
+
+    if (!error) return (data as EventRow[]).map(fromRow)
+    await ensureSampleStore(error)
+  }
+
+  return sampleStore!
+    .filter((event) => event.status === 'approved' && event.approved_at && event.approved_at >= since)
+    .sort((a, b) => (b.approved_at ?? '').localeCompare(a.approved_at ?? ''))
+}
+
 // Oldest first, so the history reads top to bottom.
 export async function fetchEventComments(eventId: string): Promise<EventComment[]> {
   if (sampleStore) {

@@ -1,7 +1,9 @@
 import { ChevronRight } from 'lucide-react'
 import { type ReactNode, useEffect, useState } from 'react'
 
+import { fetchEventsApprovedThisMonth, formatEventDate, type OrgEvent, posterUrl } from '../lib/events'
 import { fetchOrganizations, mediaUrl, type Organization } from '../lib/organizations'
+import EventReviewModal from './EventReviewModal'
 import OrganizationDetailsModal from './OrganizationDetailsModal'
 
 function addedThisMonth(iso: string) {
@@ -66,12 +68,53 @@ export function RecentOrganizations() {
   )
 }
 
-// Events aren't stored in Supabase yet. Once the events table exists, list the
-// events approved this month here, the same way RecentOrganizations does.
+// Events approved during the current calendar month, newest first.
 export function RecentEvents() {
+  const [events, setEvents] = useState<OrgEvent[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [viewing, setViewing] = useState<OrgEvent | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetchEventsApprovedThisMonth()
+      .then((loaded) => {
+        if (!cancelled) setEvents(loaded)
+      })
+      .catch((caught: Error) => {
+        if (!cancelled) setError(caught.message)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   return (
-    <RecentPanel title="Recently Added Events" status="No events added this month.">
-      {null}
+    <RecentPanel
+      title="Recently Added Events"
+      status={
+        error
+          ? `Could not load events: ${error}`
+          : events === null
+            ? 'Loading…'
+            : events.length === 0
+              ? 'No events added this month.'
+              : null
+      }
+    >
+      {events?.map((event) => {
+        const poster = posterUrl(event.poster_path)
+        return (
+          <RecentRow
+            key={event.id}
+            label={`View ${event.title}`}
+            onClick={() => setViewing(event)}
+            avatar={poster ? <img src={poster} alt="" className="size-full object-cover" /> : null}
+            title={event.title}
+            subtitle={`${event.organization_name} • ${formatEventDate(event)}`}
+          />
+        )
+      })}
+      {viewing && <EventReviewModal event={viewing} onClose={() => setViewing(null)} onReviewed={() => {}} />}
     </RecentPanel>
   )
 }

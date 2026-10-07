@@ -192,12 +192,12 @@ export function OrgNameCell({ org }: { org: Organization }) {
   )
 }
 
-export function SampleDataNotice() {
+export function SampleDataNotice({ table = 'organizations' }: { table?: string }) {
   return (
     <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-      <strong className="font-semibold">Showing sample data.</strong> The organizations table
-      isn’t in Supabase yet, so changes here only last until you reload the page. Apply the
-      organizations migration to save real data.
+      <strong className="font-semibold">Showing sample data.</strong> The {table} table
+      isn’t in Supabase yet, so changes here only last until you reload the page. Apply the{' '}
+      {table} migration to save real data.
     </p>
   )
 }
@@ -207,20 +207,25 @@ export function StatusRow({
   error,
   empty,
   onRetry,
+  what = 'organizations',
+  columns = 4,
 }: {
   loading: boolean
   error: string | null
   empty: string | null
   onRetry: () => void
+  // What the table lists, for the error message.
+  what?: string
+  columns?: number
 }) {
   if (!loading && !error && !empty) return null
   return (
     <tr>
-      <td colSpan={4} className="px-6 py-10 text-center text-sm text-zinc-500">
+      <td colSpan={columns} className="px-6 py-10 text-center text-sm text-zinc-500">
         {loading && 'Loading…'}
         {error && (
           <span className="text-red-700">
-            Could not load organizations: {error}{' '}
+            Could not load {what}: {error}{' '}
             <button type="button" onClick={onRetry} className="font-medium underline">
               Try again
             </button>

@@ -1,4 +1,4 @@
-import { Check, Search, Trash2, UserPlus, X } from 'lucide-react'
+import { Search, Trash2, UserPlus } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import AddAdminModal from '../components/AddAdminModal'
@@ -7,6 +7,7 @@ import FilterMenu, { FilterOption, FilterSection } from '../components/FilterMen
 import IconButton from '../components/IconButton'
 import { primaryButton } from '../components/Modal'
 import { SampleDataNotice, StatusRow } from '../components/OrganizationsOverview'
+import StatusSwitch from '../components/StatusSwitch'
 import {
   fetchOfficers,
   type Officer,
@@ -221,7 +222,11 @@ export default function AdminOfficersPage() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-center gap-2">
-                      <StatusSwitch officer={officer} onToggle={() => setToggling(officer)} />
+                      <StatusSwitch
+                        on={officer.status === 'active'}
+                        label={`${officer.status === 'active' ? 'Deactivate' : 'Reactivate'} ${officer.name}`}
+                        onToggle={() => setToggling(officer)}
+                      />
                       <IconButton
                         icon={Trash2}
                         label={`Remove ${officer.name}`}
@@ -312,33 +317,5 @@ function StatusBadge({ status }: { status: OfficerStatus }) {
     <span className="inline-flex items-center rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-600 ring-1 ring-zinc-500/20">
       Inactive
     </span>
-  )
-}
-
-// Green with a check while active, red with a cross while inactive. Clicking asks
-// to confirm before the status changes.
-function StatusSwitch({ officer, onToggle }: { officer: Officer; onToggle: () => void }) {
-  const active = officer.status === 'active'
-  const label = `${active ? 'Deactivate' : 'Reactivate'} ${officer.name}`
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={active}
-      aria-label={label}
-      title={label}
-      onClick={onToggle}
-      className={`relative h-5 w-9 shrink-0 rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-brand-blue/40 focus-visible:outline-none ${
-        active ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-rose-500 hover:bg-rose-600'
-      }`}
-    >
-      <span
-        className={`absolute top-0.5 left-0.5 flex size-4 items-center justify-center rounded-full bg-white shadow transition-transform ${
-          active ? 'translate-x-4 text-emerald-500' : 'translate-x-0 text-rose-500'
-        }`}
-      >
-        {active ? <Check size={10} strokeWidth={3.5} aria-hidden="true" /> : <X size={10} strokeWidth={3.5} aria-hidden="true" />}
-      </span>
-    </button>
   )
 }

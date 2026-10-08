@@ -1,12 +1,14 @@
-import { CirclePause, CirclePlay, Search } from 'lucide-react'
+import { Search, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import ConfirmDialog from '../components/ConfirmDialog'
 import FilterMenu, { FilterOption, FilterSection } from '../components/FilterMenu'
 import IconButton from '../components/IconButton'
 import { StatusRow } from '../components/OrganizationsOverview'
+import StatusSwitch from '../components/StatusSwitch'
 import {
   type AccountStatus,
+  deleteStudent,
   fetchStudents,
   setStudentStatus,
   type Student,
@@ -35,6 +37,8 @@ export default function StudentsPage() {
   const [filters, setFilters] = useState<Filters>(NO_FILTERS)
   // The student whose account is about to be suspended or reactivated.
   const [toggling, setToggling] = useState<Student | null>(null)
+  // The student whose account is about to be deleted for good.
+  const [deleting, setDeleting] = useState<Student | null>(null)
   const [sample, setSample] = useState(false)
 
   useEffect(() => {
@@ -141,22 +145,22 @@ export default function StudentsPage() {
           <table className="w-full min-w-[760px] text-left text-sm">
             <thead className="border-y border-zinc-200 bg-surface text-xs tracking-wide text-zinc-500 uppercase">
               <tr>
-                <th scope="col" className="px-6 py-3 font-medium">
+                <th scope="col" className="px-6 py-3 text-center font-medium">
                   Student No.
                 </th>
-                <th scope="col" className="px-6 py-3 font-medium">
+                <th scope="col" className="px-6 py-3 text-center font-medium">
                   Name
                 </th>
                 <th scope="col" className="px-6 py-3 text-center font-medium">
                   Year Level
                 </th>
-                <th scope="col" className="px-6 py-3 font-medium">
+                <th scope="col" className="px-6 py-3 text-center font-medium">
                   Email Address
                 </th>
-                <th scope="col" className="px-6 py-3 font-medium">
+                <th scope="col" className="px-6 py-3 text-center font-medium">
                   Status
                 </th>
-                <th scope="col" className="px-6 py-3 text-right font-medium">
+                <th scope="col" className="px-6 py-3 text-center font-medium">
                   Action
                 </th>
               </tr>
@@ -164,29 +168,30 @@ export default function StudentsPage() {
             <tbody className="divide-y divide-zinc-100">
               {shown.map((student) => (
                 <tr key={student.id} className="transition hover:bg-surface/60">
-                  <td className="px-6 py-4 font-medium text-zinc-700 tabular-nums">{student.student_no ?? '—'}</td>
+                  <td className="px-6 py-4 text-center font-medium text-zinc-700 tabular-nums">
+                    {student.student_no ?? '—'}
+                  </td>
                   <td className="px-6 py-4 font-medium text-brand-navy">{student.name}</td>
                   <td className="px-6 py-4 text-center text-zinc-700">{student.year_level ?? '—'}</td>
-                  <td className="px-6 py-4 text-zinc-700">{student.email}</td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 text-center text-zinc-700">{student.email}</td>
+                  <td className="px-6 py-4 text-center">
                     <StatusBadge status={student.status} />
                   </td>
                   <td className="px-6 py-4">
-                    <div className="flex justify-end">
-                      {student.status === 'active' ? (
-                        <IconButton
-                          icon={CirclePause}
-                          label={`Suspend ${student.name}`}
-                          danger
-                          onClick={() => setToggling(student)}
-                        />
-                      ) : (
-                        <IconButton
-                          icon={CirclePlay}
-                          label={`Reactivate ${student.name}`}
-                          onClick={() => setToggling(student)}
-                        />
-                      )}
+                    <div className="flex items-center justify-center gap-2">
+                      {/* On = Active. Off covers Suspended and Inactive; turning it on reactivates. */}
+                      <StatusSwitch
+                        on={student.status === 'active'}
+                        label={`${student.status === 'active' ? 'Suspend' : 'Reactivate'} ${student.name}`}
+                        onToggle={() => setToggling(student)}
+                      />
+                      <IconButton
+                        icon={Trash2}
+                        label={`Delete ${student.name}`}
+                        danger
+                        colored
+                        onClick={() => setDeleting(student)}
+                      />
                     </div>
                   </td>
                 </tr>
@@ -209,6 +214,20 @@ export default function StudentsPage() {
           </table>
         </div>
       </section>
+
+      {deleting && (
+        <ConfirmDialog
+          title="Delete student account?"
+          message={`${deleting.name}’s account (${deleting.email}) will be deleted for good, and they won’t be able to log in. Events and comments they wrote stay, without their name. This cannot be undone. To block them for now instead, turn the switch off to suspend them.`}
+          confirmLabel="Delete account"
+          danger
+          onClose={() => setDeleting(null)}
+          onConfirm={async () => {
+            await deleteStudent(deleting.id)
+            setStudents((current) => current?.filter((student) => student.id !== deleting.id) ?? null)
+          }}
+        />
+      )}
 
       {toggling && (
         <ConfirmDialog
@@ -239,19 +258,17 @@ export default function StudentsPage() {
   )
 }
 
-const BADGE_STYLES: Record<AccountStatus, { badge: string; dot: string }> = {
-  active: { badge: 'bg-green-50 text-green-700 ring-green-600/20', dot: 'bg-green-600' },
-  suspended: { badge: 'bg-red-50 text-red-700 ring-red-600/20', dot: 'bg-red-600' },
-  inactive: { badge: 'bg-zinc-100 text-zinc-600 ring-zinc-500/20', dot: 'bg-zinc-400' },
+const BADGE_STYLES: Record<AccountStatus, string> = {
+  active: 'bg-green-50 text-green-700 ring-green-600/20',
+  suspended: 'bg-red-50 text-red-700 ring-red-600/20',
+  inactive: 'bg-zinc-100 text-zinc-600 ring-zinc-500/20',
 }
 
 function StatusBadge({ status }: { status: AccountStatus }) {
-  const style = BADGE_STYLES[status]
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${style.badge}`}
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${BADGE_STYLES[status]}`}
     >
-      <span className={`size-1.5 rounded-full ${style.dot}`} aria-hidden="true" />
       {STATUS_LABELS[status]}
     </span>
   )

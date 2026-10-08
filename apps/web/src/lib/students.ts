@@ -102,6 +102,18 @@ export async function setStudentStatus(id: string, status: AccountStatus) {
   if (data.length === 0) throw notFound()
 }
 
+// Deletes the student's account for good, through the delete_student database function.
+export async function deleteStudent(id: string) {
+  if (sampleStore) {
+    findSample(id)
+    sampleStore = sampleStore.filter((student) => student.id !== id)
+    return
+  }
+
+  const { error } = await supabase.rpc('delete_student', { target_profile: id })
+  if (error) throw new Error(error.message)
+}
+
 // Row-level security hides rows instead of raising an error, so 0 rows means "not allowed or gone".
 function notFound() {
   return new Error('This student was not found, or your account is not allowed to change it.')

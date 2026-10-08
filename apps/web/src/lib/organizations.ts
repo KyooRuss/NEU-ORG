@@ -6,6 +6,8 @@ export type Testimonial = { author: string; text: string }
 
 export type Organization = {
   id: string
+  // The year it was added and its number within that year, e.g. "2026-001". Set by the database.
+  org_code: string
   name: string
   categories: string[]
   description: string | null
@@ -89,6 +91,8 @@ export function mediaUrl(path: string | null): string | null {
 // ---------------------------------------------------------------------------
 
 let sampleStore: Organization[] | null = null
+// Numbers the sample orgs' IDs, like the database does for real ones.
+let sampleCount = 0
 
 export function usingSampleData() {
   return sampleStore !== null
@@ -107,8 +111,10 @@ function sampleOrganization(
   extra: Partial<Organization> = {},
 ): Organization {
   const now = new Date().toISOString()
+  sampleCount += 1
   return {
     id: crypto.randomUUID(),
+    org_code: `${now.slice(0, 4)}-${String(sampleCount).padStart(3, '0')}`,
     name,
     categories,
     description: null,

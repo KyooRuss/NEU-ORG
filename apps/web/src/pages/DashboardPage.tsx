@@ -291,15 +291,33 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
       </aside>
 
       <main className="min-w-0 flex-1 px-4 py-6 sm:px-8 lg:px-12">
-        {/* Phones have no sidebar log-out button, so it lives here. */}
-        <button
-          type="button"
-          onClick={() => void supabase.auth.signOut()}
-          className="mb-4 flex items-center gap-2 rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm text-zinc-700 transition hover:bg-zinc-50 md:hidden"
-        >
-          <LogOut size={16} aria-hidden="true" />
-          Log out
-        </button>
+        {/* Shown above every page. */}
+        <header className="mb-6 flex items-center justify-end gap-3">
+          {/* Phones have no sidebar log-out button, so it lives here. */}
+          <button
+            type="button"
+            onClick={() => void supabase.auth.signOut()}
+            className="mr-auto flex items-center gap-2 rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm text-zinc-700 transition hover:bg-zinc-50 md:hidden"
+          >
+            <LogOut size={16} aria-hidden="true" />
+            Log out
+          </button>
+          {/* Notifications arrive in a later step. */}
+          <button
+            type="button"
+            aria-label="Notifications"
+            title="Notifications"
+            className="flex size-10 items-center justify-center rounded-full text-brand-navy transition hover:bg-zinc-200/70"
+          >
+            <Bell size={22} aria-hidden="true" />
+          </button>
+          <span
+            title={`${name} (${profile.role})`}
+            className="flex size-10 items-center justify-center rounded-full bg-brand-navy text-sm font-semibold text-white uppercase"
+          >
+            {name.charAt(0)}
+          </span>
+        </header>
 
         {EVENT_PAGES.includes(page) ? (
           <>
@@ -323,28 +341,9 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
           <OrganizationsOverview />
         ) : (
           <>
-            <section className="flex items-center justify-between gap-4 rounded-2xl bg-linear-to-r from-brand-navy to-[#2f45c8] px-6 py-8 text-white shadow-lg sm:px-12">
-              <div className="min-w-0">
-                <p className="text-sm text-white/90">Welcome back,</p>
-                <h1 className="mt-1 truncate text-2xl font-bold">{name}!</h1>
-              </div>
-              <div className="flex shrink-0 items-center gap-4">
-                {/* Notifications arrive in a later step. */}
-                <button
-                  type="button"
-                  aria-label="Notifications"
-                  title="Notifications"
-                  className="flex size-10 items-center justify-center rounded-full text-white transition hover:bg-white/15"
-                >
-                  <Bell size={24} aria-hidden="true" />
-                </button>
-                <span
-                  title={`${name} (${profile.role})`}
-                  className="flex size-11 items-center justify-center rounded-full bg-white text-sm font-semibold text-brand-navy uppercase"
-                >
-                  {name.charAt(0)}
-                </span>
-              </div>
+            <section className="rounded-2xl bg-linear-to-r from-brand-navy to-[#2f45c8] px-6 py-8 text-white shadow-lg sm:px-12">
+              <p className="text-sm text-white/90">Welcome back,</p>
+              <h1 className="mt-1 truncate text-2xl font-bold">{name}!</h1>
             </section>
 
             <section className="mt-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">

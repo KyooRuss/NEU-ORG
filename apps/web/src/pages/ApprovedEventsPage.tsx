@@ -54,11 +54,18 @@ export default function ApprovedEventsPage({ timing }: { timing: EventTiming }) 
       <div className="flex flex-wrap items-center justify-between gap-4 p-6">
         <div>
           <h1 className="font-semibold text-brand-navy">{title}</h1>
+          {/* Upcoming shows a short description; Past shows the count instead. */}
           <p className="mt-1 text-sm text-zinc-500">
-            {description} {filtering ? 'Showing' : 'Total'}:{' '}
-            <span className="font-semibold text-brand-navy">
-              {shown ? (filtering ? `${shown.length} of ${events!.length}` : shown.length) : '—'}
-            </span>
+            {timing === 'upcoming' ? (
+              description
+            ) : (
+              <>
+                Total Approved Events:{' '}
+                <span className="font-semibold text-brand-navy">
+                  {shown ? (filtering ? `${shown.length} of ${events!.length}` : shown.length) : '—'}
+                </span>
+              </>
+            )}
           </p>
         </div>
         <EventFilters events={events} filters={filters} onChange={setFilters} />

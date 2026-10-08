@@ -5,19 +5,16 @@ import type { OrgEvent } from '../lib/events'
 import { DEPARTMENT_OPTIONS } from '../lib/organizations'
 import FilterMenu, { FilterOption, FilterSection } from './FilterMenu'
 
-// The search box, the Organization / Department filter menu, and the Month picker, shown above every event list.
+// The search box and the Organization / Department filter menu, shown above every event list.
 export default function EventFilters({
   events,
   filters,
   onChange,
-  showMonth = true,
 }: {
   // The page's events, before filtering. The Organization choices are built from them.
   events: OrgEvent[] | null
   filters: EventFilterValues
   onChange: (filters: EventFilterValues) => void
-  // False hides the Month picker (Event Requests doesn't use it).
-  showMonth?: boolean
 }) {
   const set = (changes: Partial<EventFilterValues>) => onChange({ ...filters, ...changes })
 
@@ -99,17 +96,6 @@ export default function EventFilters({
         </FilterSection>
       </FilterMenu>
 
-      {showMonth && (
-        <label>
-          <span className="sr-only">Month</span>
-          <input
-            type="month"
-            value={filters.month}
-            onChange={(change) => set({ month: change.target.value })}
-            className={`px-4 ${fieldClass}`}
-          />
-        </label>
-      )}
     </div>
   )
 }

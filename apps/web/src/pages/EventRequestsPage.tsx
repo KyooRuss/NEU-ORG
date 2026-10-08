@@ -80,7 +80,7 @@ export default function EventRequestsPage({
             Approve a request once it has been approved offline, or send it back with comments.
           </p>
         </div>
-        <EventFilters events={events} filters={filters} onChange={setFilters} showMonth={false} />
+        <EventFilters events={events} filters={filters} onChange={setFilters} />
       </div>
 
       <div role="tablist" aria-label="Request status" className="flex gap-1 overflow-x-auto px-6">

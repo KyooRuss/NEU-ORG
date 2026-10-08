@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 
+// Professors have the "student" role (or "officer" while they're an adviser); see lib/professors.ts.
 export type UserRole = 'student' | 'officer' | 'admin'
 
 export type Profile = {

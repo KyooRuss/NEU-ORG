@@ -161,10 +161,13 @@ export type OfficerCandidate = {
   name: string
   email: string
   student_no: string | null
+  // Set for professors, who are usually the ones made Adviser.
+  professor_no: string | null
 }
 
-// Active student and officer accounts whose name, email or student number contains
-// the query. Officers are included because one person can lead more than one organization.
+// Active student and officer accounts whose name, email, student number or professor number
+// contains the query. Professors have the student role; officers can hold a position in more
+// than one organization.
 export async function searchOfficerCandidates(query: string): Promise<OfficerCandidate[]> {
   // Commas and brackets would break the "or" filter below; % and * are wildcards.
   const text = query.replace(/[,()%*\\]/g, ' ').trim()
@@ -172,10 +175,10 @@ export async function searchOfficerCandidates(query: string): Promise<OfficerCan
 
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, full_name, email, student_no')
+    .select('id, full_name, email, student_no, professor_no')
     .in('role', ['student', 'officer'])
     .eq('status', 'active')
-    .or(`full_name.ilike.%${text}%,email.ilike.%${text}%,student_no.ilike.%${text}%`)
+    .or(`full_name.ilike.%${text}%,email.ilike.%${text}%,student_no.ilike.%${text}%,professor_no.ilike.%${text}%`)
     .order('full_name')
     .limit(10)
 

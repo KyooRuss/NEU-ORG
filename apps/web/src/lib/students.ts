@@ -2,6 +2,12 @@ import { supabase } from './supabase'
 
 export type AccountStatus = 'active' | 'suspended' | 'inactive'
 
+export const ACCOUNT_STATUS_LABELS: Record<AccountStatus, string> = {
+  active: 'Active',
+  suspended: 'Suspended',
+  inactive: 'Inactive',
+}
+
 export type Student = {
   id: string
   // "2022-00002", or null until it's filled in.
@@ -74,6 +80,8 @@ export async function fetchStudents(): Promise<Student[]> {
       .from('profiles')
       .select('id, student_no, full_name, email, year_level, status, created_at')
       .eq('role', 'student')
+      // Professors have the student role too; they have their own page.
+      .is('professor_no', null)
       .order('student_no', { nullsFirst: false })
 
     if (!error) {
@@ -97,6 +105,7 @@ export async function setStudentStatus(id: string, status: AccountStatus) {
     .update({ status })
     .eq('id', id)
     .eq('role', 'student')
+    .is('professor_no', null)
     .select('id')
   if (error) throw new Error(error.message)
   if (data.length === 0) throw notFound()

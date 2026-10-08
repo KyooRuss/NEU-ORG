@@ -7,6 +7,7 @@ import IconButton from '../components/IconButton'
 import { StatusRow } from '../components/OrganizationsOverview'
 import StatusSwitch from '../components/StatusSwitch'
 import {
+  ACCOUNT_STATUS_LABELS,
   type AccountStatus,
   deleteStudent,
   fetchStudents,
@@ -19,12 +20,6 @@ import {
 type Filters = { status: AccountStatus | ''; yearLevel: string }
 
 const NO_FILTERS: Filters = { status: '', yearLevel: '' }
-
-const STATUS_LABELS: Record<AccountStatus, string> = {
-  active: 'Active',
-  suspended: 'Suspended',
-  inactive: 'Inactive',
-}
 
 const fieldClass =
   'rounded-full bg-field py-2 text-sm text-zinc-800 outline-none focus:ring-2 focus:ring-brand-blue/40'
@@ -120,7 +115,7 @@ export default function StudentsPage() {
                   selected={!filters.status}
                   onSelect={() => setFilters({ ...filters, status: '' })}
                 />
-                {(Object.entries(STATUS_LABELS) as [AccountStatus, string][]).map(([status, label]) => (
+                {(Object.entries(ACCOUNT_STATUS_LABELS) as [AccountStatus, string][]).map(([status, label]) => (
                   <FilterOption
                     key={status}
                     label={label}
@@ -264,12 +259,13 @@ const BADGE_STYLES: Record<AccountStatus, string> = {
   inactive: 'bg-zinc-100 text-zinc-600 ring-zinc-500/20',
 }
 
-function StatusBadge({ status }: { status: AccountStatus }) {
+// Also used by the Professors page.
+export function StatusBadge({ status }: { status: AccountStatus }) {
   return (
     <span
       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${BADGE_STYLES[status]}`}
     >
-      {STATUS_LABELS[status]}
+      {ACCOUNT_STATUS_LABELS[status]}
     </span>
   )
 }

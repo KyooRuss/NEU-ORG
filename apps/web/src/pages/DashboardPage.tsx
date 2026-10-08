@@ -28,6 +28,7 @@ import AddOrganizationPage from './AddOrganizationPage'
 import AdminOfficersPage from './AdminOfficersPage'
 import ApprovedEventsPage from './ApprovedEventsPage'
 import EventRequestsPage from './EventRequestsPage'
+import ProfessorsPage from './ProfessorsPage'
 import StudentsPage from './StudentsPage'
 import TrashPage from './TrashPage'
 
@@ -37,7 +38,7 @@ type StatCard = { key: string; label: string; hint: string; icon: LucideIcon }
 type Stats = Record<string, number | null>
 
 const EVENT_PAGES = ['Event Requests', 'Upcoming Events', 'Past Events']
-const USER_PAGES = ['Admin Officers', 'Students']
+const USER_PAGES = ['Admin Officers', 'Students', 'Professors']
 
 // Sample menus for now; each item becomes a real page in later steps.
 const adminNav: NavItem[] = [
@@ -349,6 +350,8 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
           </>
         ) : page === 'Admin Officers' ? (
           <AdminOfficersPage />
+        ) : page === 'Professors' ? (
+          <ProfessorsPage />
         ) : page === 'Students' ? (
           <StudentsPage />
         ) : page === 'Trash' ? (

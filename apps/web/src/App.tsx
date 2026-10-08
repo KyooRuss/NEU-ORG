@@ -37,10 +37,11 @@ export default function App() {
     fetchProfile(userId)
       .then(async (loaded) => {
         if (cancelled) return
-        if (!loaded || loaded.role === 'student') {
+        // Only officers and admins use the dashboard; students and professors use the mobile app.
+        if (!loaded || (loaded.role !== 'officer' && loaded.role !== 'admin')) {
           setNotice(
             loaded
-              ? 'This dashboard is for officers and admins. Students use the NEU ORG mobile app.'
+              ? 'This dashboard is for officers and admins. Students and professors use the NEU ORG mobile app.'
               : 'Your account has no profile yet. Please contact the OSAS admin.',
           )
           await supabase.auth.signOut()

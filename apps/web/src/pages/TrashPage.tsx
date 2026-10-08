@@ -84,7 +84,7 @@ export default function TrashPage() {
                   Organization
                 </th>
                 <th scope="col" className="px-6 py-3 font-medium">
-                  Program Eligibility
+                  Department
                 </th>
                 <th scope="col" className="px-6 py-3 font-medium">
                   Moved to Trash
@@ -100,7 +100,7 @@ export default function TrashPage() {
                   <td className="px-6 py-4">
                     <OrgNameCell org={org} />
                   </td>
-                  <td className="px-6 py-4 text-zinc-700">{org.program_eligibility}</td>
+                  <td className="px-6 py-4 text-zinc-700">{org.department}</td>
                   <td className="px-6 py-4 text-zinc-700">
                     {org.archived_at ? dateFormat.format(new Date(org.archived_at)) : '—'}
                   </td>

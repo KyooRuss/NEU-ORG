@@ -13,7 +13,8 @@ export type Organization = {
   // A college from DEPARTMENT_OPTIONS, or "University Wide".
   department: string
   description: string | null
-  mission_vision: string | null
+  vision: string | null
+  mission: string | null
   room_number: string | null
   telegram_contact: string | null
   facebook_contact: string | null
@@ -38,7 +39,8 @@ export type OrganizationInput = {
   categories: string[]
   department: string
   description: string
-  mission_vision: string
+  vision: string
+  mission: string
   room_number: string
   telegram_contact: string
   facebook_contact: string
@@ -127,7 +129,8 @@ function sampleOrganization(
     categories,
     department: UNIVERSITY_WIDE,
     description: null,
-    mission_vision: null,
+    vision: null,
+    mission: null,
     room_number: null,
     telegram_contact: null,
     facebook_contact: null,
@@ -151,7 +154,8 @@ function createSampleStore(): Organization[] {
     sampleOrganization('Computer Studies Society', ['Academic', 'Special Interest'], 128, 6, {
       department: 'College of Computer Studies',
       description: 'A community for students who love building software, hardware and ideas.',
-      mission_vision: 'To grow skilled, ethical and collaborative computing professionals.',
+      vision: 'A campus where every student can build technology that helps people.',
+      mission: 'To grow skilled, ethical and collaborative computing professionals.',
       room_number: 'Room 402, CCS Building',
       telegram_contact: '@css_neu',
       facebook_contact: 'CSS NEU Main',
@@ -361,7 +365,8 @@ function clean(input: OrganizationInput) {
     categories: input.categories.map((category) => category.trim()).filter(Boolean),
     department: input.department,
     description: optional(input.description),
-    mission_vision: optional(input.mission_vision),
+    vision: optional(input.vision),
+    mission: optional(input.mission),
     room_number: optional(input.room_number),
     telegram_contact: optional(input.telegram_contact),
     facebook_contact: optional(input.facebook_contact),

@@ -16,11 +16,11 @@ import OrganizationDetailsModal from './OrganizationDetailsModal'
 import OrganizationFormModal from './OrganizationFormModal'
 
 type Dialog =
-  | { kind: 'add' }
   | { kind: 'view' | 'edit' | 'archive'; org: Organization }
   | null
 
-export default function OrganizationsOverview() {
+// "Add Organization" opens its own page, through onAdd.
+export default function OrganizationsOverview({ onAdd }: { onAdd: () => void }) {
   const [organizations, setOrganizations] = useState<Organization[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
@@ -88,7 +88,7 @@ export default function OrganizationsOverview() {
           <DepartmentFilter value={department} onChange={setDepartment} />
           <button
             type="button"
-            onClick={() => setDialog({ kind: 'add' })}
+            onClick={onAdd}
             className="flex items-center gap-2 rounded-full bg-brand-blue px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-navy"
           >
             <Plus size={16} aria-hidden="true" />
@@ -179,7 +179,6 @@ export default function OrganizationsOverview() {
         </table>
       </div>
 
-      {dialog?.kind === 'add' && <OrganizationFormModal onClose={close} onSaved={reload} />}
       {dialog?.kind === 'edit' && (
         <OrganizationFormModal organization={dialog.org} onClose={close} onSaved={reload} />
       )}

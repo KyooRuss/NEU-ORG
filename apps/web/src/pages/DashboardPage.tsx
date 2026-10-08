@@ -24,6 +24,7 @@ import { countPendingEvents, countUpcomingEvents } from '../lib/events'
 import { fetchOrganizations } from '../lib/organizations'
 import type { Profile } from '../lib/profile'
 import { supabase } from '../lib/supabase'
+import AddOrganizationPage from './AddOrganizationPage'
 import AdminOfficersPage from './AdminOfficersPage'
 import ApprovedEventsPage from './ApprovedEventsPage'
 import EventRequestsPage from './EventRequestsPage'
@@ -47,8 +48,11 @@ const adminNav: NavItem[] = [
   { label: 'Trash', icon: Trash2 },
 ]
 
+// Opened from a button on the Organizations page, not from the sidebar.
+const ADD_ORGANIZATION = 'Add Organization'
+
 // The admin pages that exist so far (besides Dashboard).
-const adminPages = ['Organizations', 'Trash', ...USER_PAGES, ...EVENT_PAGES]
+const adminPages = ['Organizations', ADD_ORGANIZATION, 'Trash', ...USER_PAGES, ...EVENT_PAGES]
 
 // Below Tailwind's "md" breakpoint the sidebar becomes a row, so submenus don't fit.
 const isPhone = () => window.matchMedia('(max-width: 767px)').matches
@@ -105,11 +109,14 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
   const collapsed = !pinned && !hovered
   // Which sidebar page is open. Only Dashboard and (for admins) the pages in adminPages exist so far.
   const [page, setPage] = useState('Dashboard')
+  // The sidebar item to highlight. Pages outside the sidebar highlight the item they belong to.
+  const navPage = page === ADD_ORGANIZATION ? 'Organizations' : page
   // Which submenu is open, by its parent's label.
   const [openGroup, setOpenGroup] = useState<string | null>(null)
   const openPage = (label: string) => {
     if (label === 'Dashboard' || (isAdmin && adminPages.includes(label))) {
       setPage(label)
+      window.scrollTo(0, 0)
       // Keep the submenu of the page's group open, so the admin sees where they are.
       setOpenGroup(nav.find((item) => item.children?.includes(label))?.label ?? null)
     }
@@ -212,7 +219,7 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
                     type="button"
                     onClick={() => openPage(label)}
                     title={collapsed ? label : undefined}
-                    aria-current={label === page ? 'page' : undefined}
+                    aria-current={label === navPage ? 'page' : undefined}
                     className={`flex shrink-0 items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-white/80 transition hover:bg-white/10 hover:text-white aria-[current=page]:bg-white/15 aria-[current=page]:font-semibold aria-[current=page]:text-white ${
                       collapsed ? 'md:justify-center' : ''
                     }`}
@@ -224,7 +231,7 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
               }
 
               const open = !collapsed && openGroup === label
-              const holdsPage = children.includes(page)
+              const holdsPage = children.includes(navPage)
               return (
                 <div key={label} className="flex shrink-0 flex-col gap-1">
                   <button
@@ -262,7 +269,7 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
                           key={child}
                           type="button"
                           onClick={() => openPage(child)}
-                          aria-current={child === page ? 'page' : undefined}
+                          aria-current={child === navPage ? 'page' : undefined}
                           className="flex items-center gap-3 rounded-lg py-2 pr-3 pl-10.5 text-left text-sm whitespace-nowrap text-white/75 transition hover:bg-white/10 hover:text-white aria-[current=page]:bg-white/15 aria-[current=page]:font-semibold aria-[current=page]:text-white"
                         >
                           {child}
@@ -338,7 +345,12 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
         ) : page === 'Trash' ? (
           <TrashPage />
         ) : page === 'Organizations' ? (
-          <OrganizationsOverview />
+          <OrganizationsOverview onAdd={() => openPage(ADD_ORGANIZATION)} />
+        ) : page === ADD_ORGANIZATION ? (
+          <AddOrganizationPage
+            onCancel={() => openPage('Organizations')}
+            onSaved={() => openPage('Organizations')}
+          />
         ) : (
           <>
             <section className="rounded-2xl bg-linear-to-r from-brand-navy to-[#2f45c8] px-6 py-8 text-white shadow-lg sm:px-12">

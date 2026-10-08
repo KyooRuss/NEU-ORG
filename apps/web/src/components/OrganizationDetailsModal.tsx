@@ -95,6 +95,7 @@ export default function OrganizationDetailsModal({
               </ol>
             )}
           </Detail>
+          <Detail label="Department">{org.department}</Detail>
           <Detail label="Program Eligibility">{org.program_eligibility}</Detail>
           <Detail label="Member / Alumni Testimonials">
             {org.testimonials.length > 0 && (

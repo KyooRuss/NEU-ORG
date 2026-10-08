@@ -3,6 +3,7 @@ import { type FormEvent, type ReactNode, useEffect, useState } from 'react'
 
 import {
   createOrganization,
+  DEPARTMENT_OPTIONS,
   IMAGE_TYPES,
   LOGO_MAX_BYTES,
   MAX_CATEGORIES,
@@ -40,6 +41,8 @@ export default function OrganizationFormModal({ organization: org, onClose, onSa
   const [values, setValues] = useState<OrganizationInput>({
     name: org?.name ?? '',
     categories: org?.categories ?? [],
+    // Empty until the admin picks one; it's required.
+    department: org?.department ?? '',
     description: org?.description ?? '',
     mission_vision: org?.mission_vision ?? '',
     room_number: org?.room_number ?? '',
@@ -154,6 +157,10 @@ export default function OrganizationFormModal({ organization: org, onClose, onSa
       setError('Enter the organization name.')
       return
     }
+    if (!values.department) {
+      setError('Choose the department the organization is under.')
+      return
+    }
     if (values.categories.length === 0) {
       setError('Pick at least one category.')
       return
@@ -244,6 +251,28 @@ export default function OrganizationFormModal({ organization: org, onClose, onSa
               placeholder="e.g. Computer Studies Society"
               className={fieldClass}
             />
+          </label>
+
+          <label className="text-sm text-zinc-700">
+            Department <span className="text-red-600">*</span>
+            <select
+              value={values.department}
+              onChange={(event) => set('department', event.target.value)}
+              className={`${fieldClass} ${values.department ? '' : 'text-zinc-500'}`}
+            >
+              <option value="" disabled>
+                Choose a department
+              </option>
+              {/* Keep an older saved value selectable even if it's no longer in the list. */}
+              {[...new Set([...DEPARTMENT_OPTIONS, values.department].filter(Boolean))].map((department) => (
+                <option key={department} value={department} className="text-zinc-800">
+                  {department}
+                </option>
+              ))}
+            </select>
+            <span className="mt-1 block text-xs text-zinc-500">
+              Choose “University Wide” if the organization is open to students of every course.
+            </span>
           </label>
 
           <fieldset>

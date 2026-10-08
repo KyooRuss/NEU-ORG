@@ -10,17 +10,20 @@ const organizations = [
   {
     name: 'Cybersecurity Alliance',
     categories: ['Academic'],
+    department: 'College of Computer Studies',
     description: 'Students learning to protect systems, networks and data through workshops and capture-the-flag events.',
   },
   {
     name: 'Code Innovators Guild',
     categories: ['Academic'],
+    department: 'College of Computer Studies',
     description: 'A community of student developers building projects, joining hackathons and sharing what they learn.',
   },
   {
     // Left without a president so "Assign president" can be shown in a demo.
     name: 'NEU Debate Society',
     categories: ['Special Interest'],
+    department: 'University Wide',
     description: 'Sharpening critical thinking and public speaking through regular debates and competitions.',
   },
 ];

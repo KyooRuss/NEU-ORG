@@ -48,7 +48,7 @@ export default function OrganizationsOverview() {
 
   const search = query.trim().toLowerCase()
   const shown = (organizations ?? []).filter((org) =>
-    [org.org_code, org.name, ...org.categories].some((text) => text.toLowerCase().includes(search)),
+    [org.org_code, org.name, org.department, ...org.categories].some((text) => text.toLowerCase().includes(search)),
   )
 
   return (
@@ -95,7 +95,7 @@ export default function OrganizationsOverview() {
       )}
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[680px] text-left text-sm">
+        <table className="w-full min-w-[880px] text-left text-sm">
           <thead className="border-y border-zinc-200 bg-surface text-xs tracking-wide text-zinc-500 uppercase">
             <tr>
               <th scope="col" className="px-6 py-3 font-medium whitespace-nowrap">
@@ -103,6 +103,9 @@ export default function OrganizationsOverview() {
               </th>
               <th scope="col" className="px-6 py-3 font-medium">
                 Organization
+              </th>
+              <th scope="col" className="px-6 py-3 font-medium">
+                Department
               </th>
               <th scope="col" className="px-6 py-3 text-center font-medium">
                 No. of Members
@@ -122,6 +125,7 @@ export default function OrganizationsOverview() {
                 <td className="px-6 py-4">
                   <OrgNameCell org={org} />
                 </td>
+                <td className="px-6 py-4 text-zinc-700">{org.department}</td>
                 {/* Real counts arrive once memberships and events are stored in Supabase. */}
                 <td className="px-6 py-4 text-center text-zinc-700">{org.member_count ?? '—'}</td>
                 <td className="px-6 py-4 text-center text-zinc-700">{org.event_count ?? '—'}</td>
@@ -143,7 +147,7 @@ export default function OrganizationsOverview() {
               loading={organizations === null && !loadError}
               error={loadError}
               onRetry={reload}
-              columns={5}
+              columns={6}
               empty={
                 organizations !== null && shown.length === 0
                   ? search

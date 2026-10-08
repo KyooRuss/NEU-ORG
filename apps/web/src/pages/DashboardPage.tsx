@@ -298,8 +298,10 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
       </aside>
 
       <main className="min-w-0 flex-1 px-4 py-6 sm:px-8 lg:px-12">
-        {/* Shown above every page. */}
-        <header className="mb-6 flex items-center justify-end gap-3">
+        {/* Shown above every page except Add Organization, which only keeps the phone log-out button. */}
+        <header
+          className={`mb-6 flex items-center justify-end gap-3 ${page === ADD_ORGANIZATION ? 'md:hidden' : ''}`}
+        >
           {/* Phones have no sidebar log-out button, so it lives here. */}
           <button
             type="button"
@@ -309,21 +311,25 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
             <LogOut size={16} aria-hidden="true" />
             Log out
           </button>
-          {/* Notifications arrive in a later step. */}
-          <button
-            type="button"
-            aria-label="Notifications"
-            title="Notifications"
-            className="flex size-10 items-center justify-center rounded-full text-brand-navy transition hover:bg-zinc-200/70"
-          >
-            <Bell size={22} aria-hidden="true" />
-          </button>
-          <span
-            title={`${name} (${profile.role})`}
-            className="flex size-10 items-center justify-center rounded-full bg-brand-navy text-sm font-semibold text-white uppercase"
-          >
-            {name.charAt(0)}
-          </span>
+          {page !== ADD_ORGANIZATION && (
+            <>
+              {/* Notifications arrive in a later step. */}
+              <button
+                type="button"
+                aria-label="Notifications"
+                title="Notifications"
+                className="flex size-10 items-center justify-center rounded-full text-brand-navy transition hover:bg-zinc-200/70"
+              >
+                <Bell size={22} aria-hidden="true" />
+              </button>
+              <span
+                title={`${name} (${profile.role})`}
+                className="flex size-10 items-center justify-center rounded-full bg-brand-navy text-sm font-semibold text-white uppercase"
+              >
+                {name.charAt(0)}
+              </span>
+            </>
+          )}
         </header>
 
         {EVENT_PAGES.includes(page) ? (

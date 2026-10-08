@@ -107,13 +107,13 @@ export default function OrganizationsOverview() {
         <table className="w-full min-w-[880px] text-left text-sm">
           <thead className="border-y border-zinc-200 bg-surface text-xs tracking-wide text-zinc-500 uppercase">
             <tr>
-              <th scope="col" className="px-6 py-3 font-medium whitespace-nowrap">
+              <th scope="col" className="px-6 py-3 text-center font-medium whitespace-nowrap">
                 Organization ID
               </th>
-              <th scope="col" className="px-6 py-3 font-medium">
+              <th scope="col" className="px-6 py-3 text-center font-medium">
                 Organization
               </th>
-              <th scope="col" className="px-6 py-3 font-medium">
+              <th scope="col" className="px-6 py-3 text-center font-medium">
                 Department
               </th>
               <th scope="col" className="px-6 py-3 text-center font-medium">
@@ -122,7 +122,7 @@ export default function OrganizationsOverview() {
               <th scope="col" className="px-6 py-3 text-center font-medium">
                 No. of Events
               </th>
-              <th scope="col" className="px-6 py-3 text-right font-medium">
+              <th scope="col" className="px-6 py-3 text-center font-medium">
                 Action
               </th>
             </tr>
@@ -130,22 +130,30 @@ export default function OrganizationsOverview() {
           <tbody className="divide-y divide-zinc-100">
             {shown.map((org) => (
               <tr key={org.id} className="transition hover:bg-surface/60">
-                <td className="px-6 py-4 font-medium whitespace-nowrap text-zinc-700 tabular-nums">{org.org_code}</td>
+                <td className="px-6 py-4 text-center font-medium whitespace-nowrap text-zinc-700 tabular-nums">
+                  {org.org_code}
+                </td>
                 <td className="px-6 py-4">
                   <OrgNameCell org={org} />
                 </td>
-                <td className="px-6 py-4 text-zinc-700">{org.department}</td>
+                <td className="px-6 py-4 text-center text-zinc-700">{org.department}</td>
                 {/* Real counts arrive once memberships and events are stored in Supabase. */}
                 <td className="px-6 py-4 text-center text-zinc-700">{org.member_count ?? '—'}</td>
                 <td className="px-6 py-4 text-center text-zinc-700">{org.event_count ?? '—'}</td>
                 <td className="px-6 py-4">
-                  <div className="flex justify-end gap-1">
+                  <div className="flex justify-center gap-1">
                     <IconButton icon={Eye} label={`View ${org.name}`} onClick={() => setDialog({ kind: 'view', org })} />
-                    <IconButton icon={Pencil} label={`Edit ${org.name}`} onClick={() => setDialog({ kind: 'edit', org })} />
+                    <IconButton
+                      icon={Pencil}
+                      label={`Edit ${org.name}`}
+                      colored
+                      onClick={() => setDialog({ kind: 'edit', org })}
+                    />
                     <IconButton
                       icon={Trash2}
                       label={`Move ${org.name} to Trash`}
                       danger
+                      colored
                       onClick={() => setDialog({ kind: 'archive', org })}
                     />
                   </div>

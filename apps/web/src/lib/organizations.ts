@@ -58,7 +58,7 @@ export const PRESET_CATEGORIES = ['Academic', 'Cultural', 'Sports', 'Religious',
 export const MAX_CATEGORIES = 3
 
 // Edit this list to match the colleges NEU actually has.
-const COLLEGES = [
+export const COLLEGES = [
   'College of Accountancy',
   'College of Arts and Sciences',
   'College of Business Administration',

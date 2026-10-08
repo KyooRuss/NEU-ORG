@@ -1,11 +1,13 @@
-import { Building2, Eye, Pencil, Plus, Search, Trash2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Building2, Check, Eye, Filter, Pencil, Plus, Search, Trash2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 
 import {
   archiveOrganization,
+  COLLEGES,
   fetchOrganizations,
   mediaUrl,
   type Organization,
+  UNIVERSITY_WIDE,
   usingSampleData,
 } from '../lib/organizations'
 import ConfirmDialog from './ConfirmDialog'
@@ -23,6 +25,8 @@ export default function OrganizationsOverview() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
   const [query, setQuery] = useState('')
+  // A department to show only, or null for all of them.
+  const [department, setDepartment] = useState<string | null>(null)
   const [dialog, setDialog] = useState<Dialog>(null)
   const [sample, setSample] = useState(false)
 
@@ -47,8 +51,12 @@ export default function OrganizationsOverview() {
   const close = () => setDialog(null)
 
   const search = query.trim().toLowerCase()
-  const shown = (organizations ?? []).filter((org) =>
-    [org.org_code, org.name, org.department, ...org.categories].some((text) => text.toLowerCase().includes(search)),
+  const shown = (organizations ?? []).filter(
+    (org) =>
+      (!department || org.department === department) &&
+      [org.org_code, org.name, org.department, ...org.categories].some((text) =>
+        text.toLowerCase().includes(search),
+      ),
   )
 
   return (
@@ -77,6 +85,7 @@ export default function OrganizationsOverview() {
               className="w-full rounded-full bg-field py-2 pr-4 pl-9 text-sm text-zinc-800 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-brand-blue/40"
             />
           </label>
+          <DepartmentFilter value={department} onChange={setDepartment} />
           <button
             type="button"
             onClick={() => setDialog({ kind: 'add' })}
@@ -151,8 +160,10 @@ export default function OrganizationsOverview() {
               empty={
                 organizations !== null && shown.length === 0
                   ? search
-                    ? `No organizations match “${query.trim()}”.`
-                    : 'No organizations yet. Click “Add Organization” to create the first one.'
+                    ? `No organizations match “${query.trim()}”${department ? ` in ${department}` : ''}.`
+                    : department
+                      ? `No organizations in ${department}.`
+                      : 'No organizations yet. Click “Add Organization” to create the first one.'
                   : null
               }
             />
@@ -179,6 +190,92 @@ export default function OrganizationsOverview() {
         />
       )}
     </section>
+  )
+}
+
+// The filter button and its menu: all orgs, University Wide, or one department.
+function DepartmentFilter({
+  value,
+  onChange,
+}: {
+  value: string | null
+  onChange: (department: string | null) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const wrapper = useRef<HTMLDivElement>(null)
+
+  // Close the menu on a click outside it or on Escape.
+  useEffect(() => {
+    if (!open) return
+    const closeOnOutside = (event: PointerEvent) => {
+      if (!wrapper.current?.contains(event.target as Node)) setOpen(false)
+    }
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('pointerdown', closeOnOutside)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutside)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [open])
+
+  const pick = (department: string | null) => {
+    onChange(department)
+    setOpen(false)
+  }
+
+  const option = (label: string, department: string | null) => {
+    const selected = value === department
+    return (
+      <button
+        key={label}
+        type="button"
+        role="menuitemradio"
+        aria-checked={selected}
+        onClick={() => pick(department)}
+        className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition hover:bg-surface ${
+          selected ? 'font-semibold text-brand-navy' : 'text-zinc-700'
+        }`}
+      >
+        <span className="flex-1">{label}</span>
+        {selected && <Check size={16} className="shrink-0 text-brand-blue" aria-hidden="true" />}
+      </button>
+    )
+  }
+
+  return (
+    <div ref={wrapper} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        aria-label={value ? `Filter: ${value}` : 'Filter by department'}
+        title={value ? `Filter: ${value}` : 'Filter by department'}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className={`relative flex size-9 items-center justify-center rounded-full transition ${
+          value ? 'bg-brand-blue text-white hover:bg-brand-navy' : 'bg-field text-zinc-600 hover:bg-zinc-200'
+        }`}
+      >
+        <Filter size={16} aria-hidden="true" />
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          aria-label="Filter by department"
+          className="absolute right-0 z-20 mt-2 max-h-96 w-72 overflow-y-auto rounded-xl bg-white p-2 shadow-lg ring-1 ring-zinc-200"
+        >
+          {option('All Organizations', null)}
+          {option(UNIVERSITY_WIDE, UNIVERSITY_WIDE)}
+          <p className="mt-2 border-t border-zinc-100 px-3 pt-3 pb-1 text-xs font-medium tracking-wide text-zinc-500 uppercase">
+            Department
+          </p>
+          {COLLEGES.map((college) => option(college, college))}
+        </div>
+      )}
+    </div>
   )
 }
 

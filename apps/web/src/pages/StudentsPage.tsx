@@ -1,7 +1,8 @@
-import { CirclePause, CirclePlay, ListFilter, Search, X } from 'lucide-react'
+import { CirclePause, CirclePlay, Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import ConfirmDialog from '../components/ConfirmDialog'
+import FilterMenu, { FilterOption, FilterSection } from '../components/FilterMenu'
 import IconButton from '../components/IconButton'
 import { StatusRow } from '../components/OrganizationsOverview'
 import {
@@ -32,7 +33,6 @@ export default function StudentsPage() {
   const [reloadKey, setReloadKey] = useState(0)
   const [query, setQuery] = useState('')
   const [filters, setFilters] = useState<Filters>(NO_FILTERS)
-  const [showFilters, setShowFilters] = useState(false)
   // The student whose account is about to be suspended or reactivated.
   const [toggling, setToggling] = useState<Student | null>(null)
   const [sample, setSample] = useState(false)
@@ -64,33 +64,21 @@ export default function StudentsPage() {
       (!filters.status || student.status === filters.status) &&
       (!filters.yearLevel || student.year_level === Number(filters.yearLevel)),
   )
-  const filterCount = Number(!!filters.status) + Number(!!filters.yearLevel)
-  const narrowed = !!search || filterCount > 0
+  const filtering = !!filters.status || !!filters.yearLevel
+  const narrowed = !!search || filtering
 
   return (
     <>
-      <header>
-        <h1 className="text-2xl font-semibold text-brand-navy">Students</h1>
-        <p className="mt-1 text-sm text-zinc-500">Manage and track all students</p>
-      </header>
-
-      {sample && (
-        <p className="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          <strong className="font-semibold">Showing sample data.</strong> The student columns aren’t
-          in Supabase yet, so changes here only last until you reload the page. Apply the student
-          fields migration to save real data.
-        </p>
-      )}
-
-      <section className="mt-6 rounded-xl bg-white shadow-sm ring-1 ring-zinc-200">
+      <section className="rounded-xl bg-white shadow-sm ring-1 ring-zinc-200">
         <div className="flex flex-wrap items-center justify-between gap-4 p-6">
-          <p className="text-sm text-zinc-500">
-            Total Students:{' '}
-            <span className="font-semibold text-brand-navy">{students?.length ?? '—'}</span>
-            {students && narrowed && <span> · Showing {shown.length}</span>}
-          </p>
+          <div>
+            <h1 className="font-semibold text-brand-navy">Students</h1>
+            <p className="mt-1 text-sm text-zinc-500">
+              Total Students: <span className="font-semibold text-brand-navy">{students?.length ?? '—'}</span>
+            </p>
+          </div>
           <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
-            <label className="relative flex-1 sm:w-72 sm:flex-none">
+            <label className="relative min-w-64 flex-1 sm:w-96 sm:flex-none">
               <span className="sr-only">Search students</span>
               <Search
                 size={16}
@@ -101,73 +89,52 @@ export default function StudentsPage() {
                 type="search"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search students..."
+                placeholder="Search name, student no. or email address"
                 className={`w-full pr-4 pl-9 placeholder:text-zinc-500 ${fieldClass}`}
               />
             </label>
-            <button
-              type="button"
-              onClick={() => setShowFilters((value) => !value)}
-              aria-expanded={showFilters}
-              aria-controls="student-filters"
-              className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition ${
-                showFilters || filterCount > 0
-                  ? 'border-brand-blue bg-brand-blue/10 text-brand-blue'
-                  : 'border-zinc-300 text-zinc-700 hover:bg-zinc-50'
-              }`}
-            >
-              <ListFilter size={16} aria-hidden="true" />
-              Filter
-              {filterCount > 0 && (
-                <span className="rounded-full bg-brand-blue px-1.5 text-xs text-white">{filterCount}</span>
-              )}
-            </button>
+            {/* One pick per section; the menu stays open so both can be set. */}
+            <FilterMenu label="Filter by year level or status" active={filtering}>
+              <FilterSection title="Year Level">
+                <FilterOption
+                  label="All Year Levels"
+                  selected={!filters.yearLevel}
+                  onSelect={() => setFilters({ ...filters, yearLevel: '' })}
+                />
+                {YEAR_LEVELS.map((level) => (
+                  <FilterOption
+                    key={level}
+                    label={`Year ${level}`}
+                    selected={filters.yearLevel === String(level)}
+                    onSelect={() => setFilters({ ...filters, yearLevel: String(level) })}
+                  />
+                ))}
+              </FilterSection>
+              <FilterSection title="Status">
+                <FilterOption
+                  label="All Statuses"
+                  selected={!filters.status}
+                  onSelect={() => setFilters({ ...filters, status: '' })}
+                />
+                {(Object.entries(STATUS_LABELS) as [AccountStatus, string][]).map(([status, label]) => (
+                  <FilterOption
+                    key={status}
+                    label={label}
+                    selected={filters.status === status}
+                    onSelect={() => setFilters({ ...filters, status })}
+                  />
+                ))}
+              </FilterSection>
+            </FilterMenu>
           </div>
         </div>
 
-        {showFilters && (
-          <div id="student-filters" className="flex flex-wrap items-center gap-3 px-6 pb-4">
-            <label className="flex items-center gap-2 text-sm text-zinc-600">
-              Year level
-              <select
-                value={filters.yearLevel}
-                onChange={(event) => setFilters({ ...filters, yearLevel: event.target.value })}
-                className={`px-4 ${fieldClass}`}
-              >
-                <option value="">All year levels</option>
-                {YEAR_LEVELS.map((level) => (
-                  <option key={level} value={level}>
-                    Year {level}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex items-center gap-2 text-sm text-zinc-600">
-              Status
-              <select
-                value={filters.status}
-                onChange={(event) => setFilters({ ...filters, status: event.target.value as Filters['status'] })}
-                className={`px-4 ${fieldClass}`}
-              >
-                <option value="">All statuses</option>
-                {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {filterCount > 0 && (
-              <button
-                type="button"
-                onClick={() => setFilters(NO_FILTERS)}
-                className="flex items-center gap-1.5 rounded-full px-3 py-2 text-sm text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900"
-              >
-                <X size={14} aria-hidden="true" />
-                Clear
-              </button>
-            )}
-          </div>
+        {sample && (
+          <p className="mx-6 mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <strong className="font-semibold">Showing sample data.</strong> The student columns aren’t
+            in Supabase yet, so changes here only last until you reload the page. Apply the student
+            fields migration to save real data.
+          </p>
         )}
 
         <div className="overflow-x-auto">

@@ -44,7 +44,6 @@ const adminNav: NavItem[] = [
   { label: 'Organizations', icon: Building2 },
   { label: 'Events', icon: CalendarDays, children: EVENT_PAGES },
   { label: 'Users', icon: Users, children: USER_PAGES },
-  { label: 'Memorandums', icon: Megaphone },
   { label: 'Trash', icon: Trash2 },
 ]
 

@@ -84,15 +84,18 @@ export function FilterOption({
   label,
   selected,
   onSelect,
+  multiple = false,
 }: {
   label: string
   selected: boolean
   onSelect: () => void
+  // True for an option that can be ticked alongside others in its section.
+  multiple?: boolean
 }) {
   return (
     <button
       type="button"
-      role="menuitemradio"
+      role={multiple ? 'menuitemcheckbox' : 'menuitemradio'}
       aria-checked={selected}
       onClick={onSelect}
       className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition hover:bg-surface ${

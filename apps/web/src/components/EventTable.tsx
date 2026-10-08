@@ -3,24 +3,20 @@ import { Eye, ImageOff } from 'lucide-react'
 import { formatEventDay, formatEventTime, isResubmitted, type OrgEvent, posterUrl } from '../lib/events'
 import IconButton from './IconButton'
 
-// The list used by every event page. A page can add one more date column before
-// Action (Approved, for example) by passing it in.
+// The list used by every event page.
 export default function EventTable({
   events,
   error,
   empty,
-  dateColumn,
   onOpen,
   onRetry,
 }: {
   events: OrgEvent[] | null
   error: string | null
   empty: string
-  dateColumn?: { label: string; value: (event: OrgEvent) => string }
   onOpen: (event: OrgEvent) => void
   onRetry: () => void
 }) {
-  const columns = dateColumn ? 8 : 7
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[1000px] text-left text-sm">
@@ -44,11 +40,6 @@ export default function EventTable({
             <th scope="col" className="px-6 py-3 font-medium">
               Venue
             </th>
-            {dateColumn && (
-              <th scope="col" className="px-6 py-3 font-medium">
-                {dateColumn.label}
-              </th>
-            )}
             <th scope="col" className="px-6 py-3 text-center font-medium">
               Action
             </th>
@@ -65,9 +56,6 @@ export default function EventTable({
               <td className="px-6 py-4 whitespace-nowrap text-zinc-700">{formatEventDay(event)}</td>
               <td className="px-6 py-4 whitespace-nowrap text-zinc-700">{formatEventTime(event)}</td>
               <td className="px-6 py-4 text-zinc-700">{event.venue}</td>
-              {dateColumn && (
-                <td className="px-6 py-4 whitespace-nowrap text-zinc-700">{dateColumn.value(event)}</td>
-              )}
               <td className="px-6 py-4">
                 <div className="flex justify-center">
                   <IconButton icon={Eye} label={`Open ${event.title}`} onClick={() => onOpen(event)} />
@@ -77,7 +65,7 @@ export default function EventTable({
           ))}
           {(events === null || error || events.length === 0) && (
             <tr>
-              <td colSpan={columns} className="px-6 py-10 text-center text-sm text-zinc-500">
+              <td colSpan={7}className="px-6 py-10 text-center text-sm text-zinc-500">
                 {error ? (
                   <span className="text-red-700">
                     Could not load events: {error}{' '}

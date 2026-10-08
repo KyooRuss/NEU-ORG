@@ -1,16 +1,21 @@
-import { CirclePause, CirclePlay, ListFilter, Search, UserPlus, X } from 'lucide-react'
+import { CirclePause, CirclePlay, Search, UserPlus } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import AssignPresidentModal from '../components/AssignPresidentModal'
 import ConfirmDialog from '../components/ConfirmDialog'
+import FilterMenu, { FilterOption, FilterSection } from '../components/FilterMenu'
 import IconButton from '../components/IconButton'
 import { primaryButton } from '../components/Modal'
 import { SampleDataNotice, StatusRow } from '../components/OrganizationsOverview'
 import { fetchOfficers, type Officer, type OfficerStatus, setOfficerStatus, usingSampleOfficers } from '../lib/officers'
 
-type Filters = { status: OfficerStatus | ''; organizationId: string }
+// Several organizations can be ticked at once; an empty list means all of them.
+type Filters = { organizationIds: string[]; position: string; status: OfficerStatus | '' }
 
-const NO_FILTERS: Filters = { status: '', organizationId: '' }
+const NO_FILTERS: Filters = { organizationIds: [], position: '', status: '' }
+
+// Shown in the Position filter even when no officer holds them yet. Others come from the officers listed.
+const ALWAYS_LISTED_POSITIONS = ['Adviser']
 
 const fieldClass =
   'rounded-full bg-field py-2 text-sm text-zinc-800 outline-none focus:ring-2 focus:ring-brand-blue/40'
@@ -21,7 +26,6 @@ export default function AdminOfficersPage() {
   const [reloadKey, setReloadKey] = useState(0)
   const [query, setQuery] = useState('')
   const [filters, setFilters] = useState<Filters>(NO_FILTERS)
-  const [showFilters, setShowFilters] = useState(false)
   // The officer whose status is about to change.
   const [toggling, setToggling] = useState<Officer | null>(null)
   const [assigning, setAssigning] = useState(false)
@@ -44,9 +48,13 @@ export default function AdminOfficersPage() {
     }
   }, [reloadKey])
 
-  // Each organization once, A to Z, for the Organization filter.
+  // Each organization and position once, A to Z, for the filter menu.
   const organizations = [...new Map((officers ?? []).map((officer) => [officer.organization_id, officer.organization_name]))]
     .sort((a, b) => a[1].localeCompare(b[1]))
+  // Adviser is always offered, even before any officer holds it.
+  const positions = [...new Set([...ALWAYS_LISTED_POSITIONS, ...(officers ?? []).map((officer) => officer.position)])].sort(
+    (a, b) => a.localeCompare(b),
+  )
 
   const search = query.trim().toLowerCase()
   const shown = (officers ?? []).filter(
@@ -55,45 +63,30 @@ export default function AdminOfficersPage() {
         [officer.name, officer.admin_no, officer.organization_name].some((text) =>
           text.toLowerCase().includes(search),
         )) &&
-      (!filters.status || officer.status === filters.status) &&
-      (!filters.organizationId || officer.organization_id === filters.organizationId),
+      (filters.organizationIds.length === 0 || filters.organizationIds.includes(officer.organization_id)) &&
+      (!filters.position || officer.position === filters.position) &&
+      (!filters.status || officer.status === filters.status),
   )
-  const filterCount = Number(!!filters.status) + Number(!!filters.organizationId)
-  const narrowed = !!search || filterCount > 0
+  const filtering = filters.organizationIds.length > 0 || !!filters.position || !!filters.status
+  const narrowed = !!search || filtering
+
+  function toggleOrganization(id: string) {
+    const ids = filters.organizationIds
+    setFilters({ ...filters, organizationIds: ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id] })
+  }
 
   return (
     <>
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-brand-navy">Admin Officers</h1>
-          <p className="mt-1 text-sm text-zinc-500">Manage and track all admin officers</p>
-        </div>
-        {!sample && (
-          <button
-            type="button"
-            onClick={() => setAssigning(true)}
-            disabled={officers === null}
-            className={`flex items-center gap-2 ${primaryButton}`}
-          >
-            <UserPlus size={16} aria-hidden="true" />
-            Assign president
-          </button>
-        )}
-      </header>
-
-      {sample && (
-        <div className="mt-6">
-          <SampleDataNotice table="officers" />
-        </div>
-      )}
-
-      <section className="mt-6 rounded-xl bg-white shadow-sm ring-1 ring-zinc-200">
+      <section className="rounded-xl bg-white shadow-sm ring-1 ring-zinc-200">
         <div className="flex flex-wrap items-center justify-between gap-4 p-6">
-          <p className="text-sm text-zinc-500">
-            Total Admin Officers:{' '}
-            <span className="font-semibold text-brand-navy">{officers?.length ?? '—'}</span>
-            {officers && narrowed && <span> · Showing {shown.length}</span>}
-          </p>
+          <div>
+            <h1 className="font-semibold text-brand-navy">Admin Officers</h1>
+            <p className="mt-1 text-sm text-zinc-500">
+              Total Admin Officers:{' '}
+              <span className="font-semibold text-brand-navy">{officers?.length ?? '—'}</span>
+              {officers && narrowed && <span> · Showing {shown.length}</span>}
+            </p>
+          </div>
           <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
             <label className="relative flex-1 sm:w-72 sm:flex-none">
               <span className="sr-only">Search admin officers</span>
@@ -110,65 +103,73 @@ export default function AdminOfficersPage() {
                 className={`w-full pr-4 pl-9 placeholder:text-zinc-500 ${fieldClass}`}
               />
             </label>
-            <button
-              type="button"
-              onClick={() => setShowFilters((value) => !value)}
-              aria-expanded={showFilters}
-              aria-controls="officer-filters"
-              className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition ${
-                showFilters || filterCount > 0
-                  ? 'border-brand-blue bg-brand-blue/10 text-brand-blue'
-                  : 'border-zinc-300 text-zinc-700 hover:bg-zinc-50'
-              }`}
-            >
-              <ListFilter size={16} aria-hidden="true" />
-              Filter
-              {filterCount > 0 && (
-                <span className="rounded-full bg-brand-blue px-1.5 text-xs text-white">{filterCount}</span>
-              )}
-            </button>
+            {/* Organization allows several ticks; Position and Status one each. */}
+            <FilterMenu label="Filter by organization, position or status" active={filtering}>
+              <FilterSection title="Organization">
+                <FilterOption
+                  label="All Organizations"
+                  selected={filters.organizationIds.length === 0}
+                  onSelect={() => setFilters({ ...filters, organizationIds: [] })}
+                />
+                {organizations.map(([id, name]) => (
+                  <FilterOption
+                    key={id}
+                    label={name}
+                    multiple
+                    selected={filters.organizationIds.includes(id)}
+                    onSelect={() => toggleOrganization(id)}
+                  />
+                ))}
+              </FilterSection>
+              <FilterSection title="Position">
+                <FilterOption
+                  label="All Positions"
+                  selected={!filters.position}
+                  onSelect={() => setFilters({ ...filters, position: '' })}
+                />
+                {positions.map((position) => (
+                  <FilterOption
+                    key={position}
+                    label={position}
+                    selected={filters.position === position}
+                    onSelect={() => setFilters({ ...filters, position })}
+                  />
+                ))}
+              </FilterSection>
+              <FilterSection title="Status">
+                {(
+                  [
+                    ['', 'All Statuses'],
+                    ['active', 'Active'],
+                    ['inactive', 'Inactive'],
+                  ] as const
+                ).map(([status, label]) => (
+                  <FilterOption
+                    key={label}
+                    label={label}
+                    selected={filters.status === status}
+                    onSelect={() => setFilters({ ...filters, status })}
+                  />
+                ))}
+              </FilterSection>
+            </FilterMenu>
+            {!sample && (
+              <button
+                type="button"
+                onClick={() => setAssigning(true)}
+                disabled={officers === null}
+                className={`flex items-center gap-2 ${primaryButton}`}
+              >
+                <UserPlus size={16} aria-hidden="true" />
+                Assign president
+              </button>
+            )}
           </div>
         </div>
 
-        {showFilters && (
-          <div id="officer-filters" className="flex flex-wrap items-center gap-3 px-6 pb-4">
-            <label className="flex items-center gap-2 text-sm text-zinc-600">
-              Status
-              <select
-                value={filters.status}
-                onChange={(event) => setFilters({ ...filters, status: event.target.value as Filters['status'] })}
-                className={`px-4 ${fieldClass}`}
-              >
-                <option value="">All statuses</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </label>
-            <label className="flex items-center gap-2 text-sm text-zinc-600">
-              Organization
-              <select
-                value={filters.organizationId}
-                onChange={(event) => setFilters({ ...filters, organizationId: event.target.value })}
-                className={`max-w-64 px-4 ${fieldClass}`}
-              >
-                <option value="">All organizations</option>
-                {organizations.map(([id, name]) => (
-                  <option key={id} value={id}>
-                    {name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {filterCount > 0 && (
-              <button
-                type="button"
-                onClick={() => setFilters(NO_FILTERS)}
-                className="flex items-center gap-1.5 rounded-full px-3 py-2 text-sm text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900"
-              >
-                <X size={14} aria-hidden="true" />
-                Clear
-              </button>
-            )}
+        {sample && (
+          <div className="px-6 pb-4">
+            <SampleDataNotice table="officers" />
           </div>
         )}
 

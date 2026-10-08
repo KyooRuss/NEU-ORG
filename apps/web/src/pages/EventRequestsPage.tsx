@@ -4,26 +4,23 @@ import EventFilters from '../components/EventFilters'
 import EventReviewModal from '../components/EventReviewModal'
 import EventTable, { SampleEventsNotice } from '../components/EventTable'
 import { type EventFilterValues, filterEvents, hasFilters, NO_FILTERS } from '../lib/eventFilters'
-import { fetchEventRequests, formatDay, type OrgEvent, type RequestTab, usingSampleEvents } from '../lib/events'
+import { fetchEventRequests, type OrgEvent, type RequestTab, usingSampleEvents } from '../lib/events'
 
-const TABS: { value: RequestTab; label: string; empty: string; dateColumn: string }[] = [
+const TABS: { value: RequestTab; label: string; empty: string }[] = [
   {
     value: 'pending',
     label: 'Pending',
     empty: 'No pending requests. New requests from officers will appear here.',
-    dateColumn: 'Submitted',
   },
   {
     value: 'revision',
     label: 'For Revision',
     empty: 'No requests are waiting for the officers to revise them.',
-    dateColumn: 'Last Updated',
   },
   {
     value: 'declined',
     label: 'Declined',
     empty: 'No declined requests.',
-    dateColumn: 'Declined',
   },
 ]
 
@@ -117,11 +114,6 @@ export default function EventRequestsPage({
           events={shown}
           error={loadError}
           empty={hasFilters(filters) ? 'No requests match your search or filters.' : current.empty}
-          dateColumn={{
-            label: current.dateColumn,
-            // For Revision and Declined show the request's latest change.
-            value: (event) => formatDay(tab === 'pending' ? event.submitted_at : event.updated_at),
-          }}
           onOpen={setReviewing}
           onRetry={reload}
         />

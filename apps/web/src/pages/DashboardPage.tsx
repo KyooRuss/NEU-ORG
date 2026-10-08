@@ -188,7 +188,10 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
               title={pinned ? 'Close menu' : 'Keep menu open'}
               aria-expanded={!collapsed}
               aria-controls="dashboard-nav"
-              className="flex size-10 shrink-0 items-center justify-center rounded-lg text-white/90 transition hover:bg-white/10 hover:text-white"
+              // Hidden while the menu is only open because the mouse is over it; it comes back on leave.
+              className={`flex size-10 shrink-0 items-center justify-center rounded-lg text-white/90 transition hover:bg-white/10 hover:text-white ${
+                hovered && !pinned ? 'md:hidden' : ''
+              }`}
             >
               <Menu size={22} aria-hidden="true" />
             </button>

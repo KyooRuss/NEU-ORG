@@ -16,6 +16,7 @@ export type OrgEvent = {
   id: string
   organization_id: string
   organization_name: string
+  organization_department: string
   title: string
   description: string
   venue: string
@@ -66,6 +67,19 @@ export function formatEventDate(event: Pick<OrgEvent, 'starts_at' | 'ends_at'>) 
   return `${dayFormat.format(start)}, ${timeFormat.format(start)} – ${dayFormat.format(end)}, ${timeFormat.format(end)}`
 }
 
+// "Oct 21, 2026", or "Oct 21, 2026 – Oct 23, 2026" when it spans several days.
+export function formatEventDay(event: Pick<OrgEvent, 'starts_at' | 'ends_at'>) {
+  const start = new Date(event.starts_at)
+  const end = new Date(event.ends_at)
+  if (start.toDateString() === end.toDateString()) return dayFormat.format(start)
+  return `${dayFormat.format(start)} – ${dayFormat.format(end)}`
+}
+
+// "9:00 AM – 4:00 PM"
+export function formatEventTime(event: Pick<OrgEvent, 'starts_at' | 'ends_at'>) {
+  return `${timeFormat.format(new Date(event.starts_at))} – ${timeFormat.format(new Date(event.ends_at))}`
+}
+
 export function formatDay(iso: string) {
   return dayFormat.format(new Date(iso))
 }
@@ -104,8 +118,16 @@ async function createSampleStore(): Promise<OrgEvent[]> {
   const orgs = await fetchOrganizations('active').catch(() => [])
   const org = (index: number) =>
     orgs.length > 0
-      ? { organization_id: orgs[index % orgs.length].id, organization_name: orgs[index % orgs.length].name }
-      : { organization_id: `sample-org-${index}`, organization_name: 'Sample Organization' }
+      ? {
+          organization_id: orgs[index % orgs.length].id,
+          organization_name: orgs[index % orgs.length].name,
+          organization_department: orgs[index % orgs.length].department,
+        }
+      : {
+          organization_id: `sample-org-${index}`,
+          organization_name: 'Sample Organization',
+          organization_department: 'University Wide',
+        }
 
   const sample = (
     index: number,
@@ -175,11 +197,11 @@ function findSample(id: string): OrgEvent {
 // Reads. Each one uses the sample data instead while it's active.
 // ---------------------------------------------------------------------------
 
-// Includes the organization's name and the number of revision comments.
-const EVENT_COLUMNS = '*, organization:organizations(name), event_comments(count)'
+// Includes the organization's name and department, and the number of revision comments.
+const EVENT_COLUMNS = '*, organization:organizations(name, department), event_comments(count)'
 
-type EventRow = Omit<OrgEvent, 'organization_name' | 'comment_count'> & {
-  organization: { name: string } | null
+type EventRow = Omit<OrgEvent, 'organization_name' | 'organization_department' | 'comment_count'> & {
+  organization: { name: string; department: string } | null
   event_comments: { count: number }[]
 }
 
@@ -187,6 +209,7 @@ function fromRow({ organization, event_comments, ...row }: EventRow): OrgEvent {
   return {
     ...row,
     organization_name: organization?.name ?? 'Unknown organization',
+    organization_department: organization?.department ?? '—',
     comment_count: event_comments[0]?.count ?? 0,
   }
 }

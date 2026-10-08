@@ -14,7 +14,7 @@ export function hasFilters(filters: EventFilterValues) {
   return !!(filters.query.trim() || filters.organizationId || filters.month)
 }
 
-// Keeps the events that match the search (event or organization name), the
+// Keeps the events that match the search (event title, organization, department or venue), the
 // chosen organization, and the chosen month.
 export function filterEvents(events: OrgEvent[], filters: EventFilterValues) {
   const search = filters.query.trim().toLowerCase()
@@ -22,7 +22,8 @@ export function filterEvents(events: OrgEvent[], filters: EventFilterValues) {
 
   return events.filter(
     (event) =>
-      (!search || [event.title, event.organization_name].some((text) => text.toLowerCase().includes(search))) &&
+      (!search ||
+        [event.title, event.organization_name, event.organization_department, event.venue].some((text) => text.toLowerCase().includes(search))) &&
       (!filters.organizationId || event.organization_id === filters.organizationId) &&
       // An event that runs across two months shows in both.
       (!range || (new Date(event.starts_at) < range.end && new Date(event.ends_at) >= range.start)),

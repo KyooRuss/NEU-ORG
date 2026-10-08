@@ -9,6 +9,8 @@ export type Professor = {
   // A college from COLLEGES, or null until it's filled in.
   department: string | null
   status: AccountStatus
+  // When the professor was moved to Trash, or null.
+  archived_at: string | null
   created_at: string
 }
 
@@ -40,6 +42,7 @@ function createSampleStore(): Professor[] {
     email: `${name.toLowerCase().replace(/[^a-z]+/g, '.').replace(/^\.|\.$/g, '')}@neu.edu.ph`,
     department,
     status,
+    archived_at: null,
     created_at: new Date().toISOString(),
   })
 
@@ -65,13 +68,15 @@ function findSample(id: string): Professor {
 type ProfessorRow = Omit<Professor, 'name'> & { full_name: string | null }
 
 // Everyone with a professor number, including professors who are currently advisers.
-export async function fetchProfessors(): Promise<Professor[]> {
+// The professors in Trash when archived is true, the others otherwise.
+export async function fetchProfessors(archived = false): Promise<Professor[]> {
   if (!sampleStore) {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, professor_no, full_name, email, department, status, created_at')
+      .select('id, professor_no, full_name, email, department, status, archived_at, created_at')
       .not('professor_no', 'is', null)
       .neq('role', 'admin')
+      .filter('archived_at', archived ? 'not.is' : 'is', null)
       .order('professor_no')
 
     if (!error) {
@@ -81,7 +86,9 @@ export async function fetchProfessors(): Promise<Professor[]> {
     sampleStore = createSampleStore()
   }
 
-  return [...sampleStore].sort((a, b) => a.professor_no.localeCompare(b.professor_no))
+  return sampleStore
+    .filter((professor) => (professor.archived_at !== null) === archived)
+    .sort((a, b) => a.professor_no.localeCompare(b.professor_no))
 }
 
 export async function setProfessorStatus(id: string, status: AccountStatus) {
@@ -93,6 +100,44 @@ export async function setProfessorStatus(id: string, status: AccountStatus) {
   const { data, error } = await supabase
     .from('profiles')
     .update({ status })
+    .eq('id', id)
+    .not('professor_no', 'is', null)
+    .neq('role', 'admin')
+    .select('id')
+  if (error) throw new Error(error.message)
+  if (data.length === 0) throw notFound()
+}
+
+// Moves the professor to Trash, hiding them from the Professors list until restored.
+// Refused while they're an active officer (an adviser), like deleting.
+export async function archiveProfessor(id: string) {
+  if (sampleStore) {
+    findSample(id).archived_at = new Date().toISOString()
+    return
+  }
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ archived_at: new Date().toISOString() })
+    .eq('id', id)
+    .not('professor_no', 'is', null)
+    .eq('role', 'student')
+    .select('id')
+  if (error) throw new Error(error.message)
+  if (data.length === 0) {
+    throw new Error('This professor was not found, or they are still an active officer. Remove them on Admin Officers first.')
+  }
+}
+
+export async function restoreProfessor(id: string) {
+  if (sampleStore) {
+    findSample(id).archived_at = null
+    return
+  }
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ archived_at: null })
     .eq('id', id)
     .not('professor_no', 'is', null)
     .neq('role', 'admin')

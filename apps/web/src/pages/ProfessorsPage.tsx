@@ -8,7 +8,7 @@ import { StatusRow } from '../components/OrganizationsOverview'
 import StatusSwitch from '../components/StatusSwitch'
 import { COLLEGES } from '../lib/organizations'
 import {
-  deleteProfessor,
+  archiveProfessor,
   fetchProfessors,
   type Professor,
   setProfessorStatus,
@@ -39,7 +39,7 @@ export default function ProfessorsPage() {
   const [filters, setFilters] = useState<Filters>(NO_FILTERS)
   // The professor whose account is about to be deactivated or reactivated.
   const [toggling, setToggling] = useState<Professor | null>(null)
-  // The professor whose account is about to be deleted for good.
+  // The professor about to be moved to Trash.
   const [deleting, setDeleting] = useState<Professor | null>(null)
   const [sample, setSample] = useState(false)
 
@@ -190,7 +190,7 @@ export default function ProfessorsPage() {
                       />
                       <IconButton
                         icon={Trash2}
-                        label={`Delete ${professor.name}`}
+                        label={`Move ${professor.name} to Trash`}
                         danger
                         colored
                         onClick={() => setDeleting(professor)}
@@ -220,13 +220,13 @@ export default function ProfessorsPage() {
 
       {deleting && (
         <ConfirmDialog
-          title="Delete professor account?"
-          message={`${deleting.name}’s account (${deleting.email}) will be deleted for good, and they won’t be able to log in. This cannot be undone. To block them for now instead, turn the switch off to suspend them.`}
-          confirmLabel="Delete account"
+          title="Move to Trash?"
+          message={`${deleting.name} (${deleting.email}) will be hidden from the Professors list. You can restore them, or delete their account for good, from Trash.`}
+          confirmLabel="Move to Trash"
           danger
           onClose={() => setDeleting(null)}
           onConfirm={async () => {
-            await deleteProfessor(deleting.id)
+            await archiveProfessor(deleting.id)
             setProfessors((current) => current?.filter((professor) => professor.id !== deleting.id) ?? null)
           }}
         />

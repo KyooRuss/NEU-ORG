@@ -30,7 +30,7 @@ import ApprovedEventsPage from './ApprovedEventsPage'
 import EventRequestsPage from './EventRequestsPage'
 import ProfessorsPage from './ProfessorsPage'
 import StudentsPage from './StudentsPage'
-import TrashPage from './TrashPage'
+import TrashPage, { type TrashKind } from './TrashPage'
 
 // An item with children opens a submenu; each child is its own page.
 type NavItem = { label: string; icon: LucideIcon; children?: string[] }
@@ -40,20 +40,31 @@ type Stats = Record<string, number | null>
 const EVENT_PAGES = ['Event Requests', 'Upcoming Events', 'Past Events']
 const USER_PAGES = ['Admin Officers', 'Students', 'Professors']
 
+// Trash has a page per kind. Their keys differ from the Users pages; the menu shows the kind only.
+const TRASH_KINDS: Record<string, TrashKind> = {
+  'Trash Organizations': 'Organizations',
+  'Trash Admin Officers': 'Admin Officers',
+  'Trash Students': 'Students',
+  'Trash Professors': 'Professors',
+}
+const TRASH_PAGES = Object.keys(TRASH_KINDS)
+// The name shown for a page in the menu and tabs.
+const pageLabel = (page: string) => TRASH_KINDS[page] ?? page
+
 // Sample menus for now; each item becomes a real page in later steps.
 const adminNav: NavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard },
   { label: 'Organizations', icon: Building2 },
   { label: 'Events', icon: CalendarDays, children: EVENT_PAGES },
   { label: 'Users', icon: Users, children: USER_PAGES },
-  { label: 'Trash', icon: Trash2 },
+  { label: 'Trash', icon: Trash2, children: TRASH_PAGES },
 ]
 
 // Opened from a button on the Organizations page, not from the sidebar.
 const ADD_ORGANIZATION = 'Add Organization'
 
 // The admin pages that exist so far (besides Dashboard).
-const adminPages = ['Organizations', ADD_ORGANIZATION, 'Trash', ...USER_PAGES, ...EVENT_PAGES]
+const adminPages = ['Organizations', ADD_ORGANIZATION, ...TRASH_PAGES, ...USER_PAGES, ...EVENT_PAGES]
 
 // Below Tailwind's "md" breakpoint the sidebar becomes a row, so submenus don't fit.
 const isPhone = () => window.matchMedia('(max-width: 767px)').matches
@@ -91,6 +102,7 @@ async function fetchAdminStats(): Promise<Stats> {
       .from('profiles')
       .select('id', { count: 'exact', head: true })
       .eq('role', 'student')
+      .is('archived_at', null)
       .then(({ count, error }) => (error ? null : count)),
     countPendingEvents().catch(() => null),
     countUpcomingEvents().catch(() => null),
@@ -276,7 +288,7 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
                           aria-current={child === navPage ? 'page' : undefined}
                           className="flex items-center gap-3 rounded-lg py-2 pr-3 pl-10.5 text-left text-sm whitespace-nowrap text-white/75 transition hover:bg-white/10 hover:text-white aria-[current=page]:bg-white/15 aria-[current=page]:font-semibold aria-[current=page]:text-white"
                         >
-                          {child}
+                          {pageLabel(child)}
                           {child === 'Event Requests' && <CountBadge count={badge} />}
                         </button>
                       ))}
@@ -338,7 +350,7 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
 
         {EVENT_PAGES.includes(page) ? (
           <>
-            <EventPageTabs page={page} pendingCount={pendingEvents} onOpen={openPage} />
+            <PageTabs label="Event pages" pages={EVENT_PAGES} page={page} pendingCount={pendingEvents} onOpen={openPage} />
             {page === 'Event Requests' ? (
               <EventRequestsPage
                 pendingCount={pendingEvents}
@@ -354,8 +366,11 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
           <ProfessorsPage />
         ) : page === 'Students' ? (
           <StudentsPage />
-        ) : page === 'Trash' ? (
-          <TrashPage />
+        ) : TRASH_PAGES.includes(page) ? (
+          <>
+            <PageTabs label="Trash pages" pages={TRASH_PAGES} page={page} onOpen={openPage} />
+            <TrashPage key={page} kind={TRASH_KINDS[page]} />
+          </>
         ) : page === 'Organizations' ? (
           <OrganizationsOverview onAdd={() => openPage(ADD_ORGANIZATION)} />
         ) : page === ADD_ORGANIZATION ? (
@@ -425,19 +440,23 @@ function CountBadge({ count, className = '' }: { count: number | null; className
   )
 }
 
-// On phones the sidebar has no submenu, so the event pages switch with these tabs.
-function EventPageTabs({
+// On phones the sidebar has no submenu, so a group's pages (Events, Trash) switch with these tabs.
+function PageTabs({
+  label: navLabel,
+  pages,
   page,
-  pendingCount,
+  pendingCount = null,
   onOpen,
 }: {
+  label: string
+  pages: string[]
   page: string
-  pendingCount: number | null
+  pendingCount?: number | null
   onOpen: (label: string) => void
 }) {
   return (
-    <nav aria-label="Event pages" className="mb-4 flex gap-1 overflow-x-auto rounded-xl bg-white p-1 shadow-sm ring-1 ring-zinc-200 md:hidden">
-      {EVENT_PAGES.map((label) => (
+    <nav aria-label={navLabel} className="mb-4 flex gap-1 overflow-x-auto rounded-xl bg-white p-1 shadow-sm ring-1 ring-zinc-200 md:hidden">
+      {pages.map((label) => (
         <button
           key={label}
           type="button"
@@ -445,7 +464,7 @@ function EventPageTabs({
           aria-current={label === page ? 'page' : undefined}
           className="flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm whitespace-nowrap text-zinc-600 transition hover:bg-zinc-100 aria-[current=page]:bg-brand-navy aria-[current=page]:font-semibold aria-[current=page]:text-white"
         >
-          {label}
+          {pageLabel(label)}
           {label === 'Event Requests' && !!pendingCount && (
             <span className="rounded-full bg-brand-blue/15 px-1.5 text-xs font-semibold">{pendingCount}</span>
           )}

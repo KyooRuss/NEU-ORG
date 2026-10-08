@@ -9,10 +9,10 @@ import { primaryButton } from '../components/Modal'
 import { SampleDataNotice, StatusRow } from '../components/OrganizationsOverview'
 import StatusSwitch from '../components/StatusSwitch'
 import {
+  archiveOfficer,
   fetchOfficers,
   type Officer,
   type OfficerStatus,
-  removeOfficer,
   setOfficerStatus,
   usingSampleOfficers,
 } from '../lib/officers'
@@ -36,7 +36,7 @@ export default function AdminOfficersPage() {
   const [filters, setFilters] = useState<Filters>(NO_FILTERS)
   // The officer whose status is about to change.
   const [toggling, setToggling] = useState<Officer | null>(null)
-  // The officer about to be removed for good.
+  // The officer about to be moved to Trash.
   const [removing, setRemoving] = useState<Officer | null>(null)
   const [adding, setAdding] = useState(false)
   const [sample, setSample] = useState(false)
@@ -229,7 +229,7 @@ export default function AdminOfficersPage() {
                       />
                       <IconButton
                         icon={Trash2}
-                        label={`Remove ${officer.name}`}
+                        label={`Move ${officer.name} to Trash`}
                         danger
                         colored
                         onClick={() => setRemoving(officer)}
@@ -267,13 +267,13 @@ export default function AdminOfficersPage() {
 
       {removing && (
         <ConfirmDialog
-          title="Remove officer?"
-          message={`${removing.name} (${removing.admin_no}) will be removed as ${removing.position} of ${removing.organization_name} for good, and lose officer access unless they hold another active position. This cannot be undone.`}
-          confirmLabel="Remove"
+          title="Move to Trash?"
+          message={`${removing.name} (${removing.admin_no}) will be marked Inactive as ${removing.position} of ${removing.organization_name} and lose officer access unless they hold another active position. You can restore them from Trash.`}
+          confirmLabel="Move to Trash"
           danger
           onClose={() => setRemoving(null)}
           onConfirm={async () => {
-            await removeOfficer(removing.id)
+            await archiveOfficer(removing.id)
             setOfficers((current) => current?.filter((officer) => officer.id !== removing.id) ?? null)
           }}
         />

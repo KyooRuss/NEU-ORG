@@ -16,6 +16,8 @@ export type Student = {
   email: string
   year_level: number | null
   status: AccountStatus
+  // When the student was moved to Trash, or null.
+  archived_at: string | null
   created_at: string
 }
 
@@ -49,6 +51,7 @@ function createSampleStore(): Student[] {
     email: `student${Number(student_no.slice(-5))}@orgfinder.com`,
     year_level,
     status,
+    archived_at: null,
     created_at: new Date().toISOString(),
   })
 
@@ -74,14 +77,16 @@ function findSample(id: string): Student {
 
 type StudentRow = Omit<Student, 'name'> & { full_name: string | null }
 
-export async function fetchStudents(): Promise<Student[]> {
+// The students in Trash when archived is true, the others otherwise.
+export async function fetchStudents(archived = false): Promise<Student[]> {
   if (!sampleStore) {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, student_no, full_name, email, year_level, status, created_at')
+      .select('id, student_no, full_name, email, year_level, status, archived_at, created_at')
       .eq('role', 'student')
       // Professors have the student role too; they have their own page.
       .is('professor_no', null)
+      .filter('archived_at', archived ? 'not.is' : 'is', null)
       .order('student_no', { nullsFirst: false })
 
     if (!error) {
@@ -91,18 +96,33 @@ export async function fetchStudents(): Promise<Student[]> {
     sampleStore = createSampleStore()
   }
 
-  return [...sampleStore].sort((a, b) => (a.student_no ?? '').localeCompare(b.student_no ?? ''))
+  return sampleStore
+    .filter((student) => (student.archived_at !== null) === archived)
+    .sort((a, b) => (a.student_no ?? '').localeCompare(b.student_no ?? ''))
 }
 
 export async function setStudentStatus(id: string, status: AccountStatus) {
+  await updateStudent(id, { status })
+}
+
+// Moves the student to Trash, hiding them from the Students list until restored.
+export async function archiveStudent(id: string) {
+  await updateStudent(id, { archived_at: new Date().toISOString() })
+}
+
+export async function restoreStudent(id: string) {
+  await updateStudent(id, { archived_at: null })
+}
+
+async function updateStudent(id: string, changes: Partial<Pick<Student, 'status' | 'archived_at'>>) {
   if (sampleStore) {
-    findSample(id).status = status
+    Object.assign(findSample(id), changes)
     return
   }
 
   const { data, error } = await supabase
     .from('profiles')
-    .update({ status })
+    .update(changes)
     .eq('id', id)
     .eq('role', 'student')
     .is('professor_no', null)

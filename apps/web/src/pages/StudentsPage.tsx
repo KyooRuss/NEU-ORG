@@ -9,7 +9,7 @@ import StatusSwitch from '../components/StatusSwitch'
 import {
   ACCOUNT_STATUS_LABELS,
   type AccountStatus,
-  deleteStudent,
+  archiveStudent,
   fetchStudents,
   setStudentStatus,
   type Student,
@@ -32,7 +32,7 @@ export default function StudentsPage() {
   const [filters, setFilters] = useState<Filters>(NO_FILTERS)
   // The student whose account is about to be suspended or reactivated.
   const [toggling, setToggling] = useState<Student | null>(null)
-  // The student whose account is about to be deleted for good.
+  // The student about to be moved to Trash.
   const [deleting, setDeleting] = useState<Student | null>(null)
   const [sample, setSample] = useState(false)
 
@@ -182,7 +182,7 @@ export default function StudentsPage() {
                       />
                       <IconButton
                         icon={Trash2}
-                        label={`Delete ${student.name}`}
+                        label={`Move ${student.name} to Trash`}
                         danger
                         colored
                         onClick={() => setDeleting(student)}
@@ -212,13 +212,13 @@ export default function StudentsPage() {
 
       {deleting && (
         <ConfirmDialog
-          title="Delete student account?"
-          message={`${deleting.name}’s account (${deleting.email}) will be deleted for good, and they won’t be able to log in. Events and comments they wrote stay, without their name. This cannot be undone. To block them for now instead, turn the switch off to suspend them.`}
-          confirmLabel="Delete account"
+          title="Move to Trash?"
+          message={`${deleting.name} (${deleting.email}) will be hidden from the Students list. You can restore them, or delete their account for good, from Trash.`}
+          confirmLabel="Move to Trash"
           danger
           onClose={() => setDeleting(null)}
           onConfirm={async () => {
-            await deleteStudent(deleting.id)
+            await archiveStudent(deleting.id)
             setStudents((current) => current?.filter((student) => student.id !== deleting.id) ?? null)
           }}
         />

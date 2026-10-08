@@ -122,6 +122,19 @@ export async function setOfficerStatus(id: string, status: OfficerStatus) {
   if (error) throw new Error(error.message)
 }
 
+// Deletes the officer entry for good. Goes through the remove_officer database
+// function, which also takes away officer access unless they hold another active position.
+export async function removeOfficer(id: string) {
+  if (sampleStore) {
+    findSample(id)
+    sampleStore = sampleStore.filter((officer) => officer.id !== id)
+    return
+  }
+
+  const { error } = await supabase.rpc('remove_officer', { target_officer: id })
+  if (error) throw new Error(error.message)
+}
+
 // The positions an officer can hold. Each organization has at most one active person in each.
 export const OFFICER_POSITIONS = ['President', 'Adviser'] as const
 export type OfficerPosition = (typeof OFFICER_POSITIONS)[number]

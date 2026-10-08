@@ -92,6 +92,7 @@ export default function AddAdminModal({ officers, onClose, onAdded }: Props) {
   return (
     <Modal
       title="Assign a new admin"
+      centerTitle
       size="sm"
       onClose={saving ? () => {} : onClose}
       footer={

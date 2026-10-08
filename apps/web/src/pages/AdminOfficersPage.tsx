@@ -1,4 +1,4 @@
-import { CirclePause, CirclePlay, Search, UserPlus } from 'lucide-react'
+import { Check, Search, Trash2, UserPlus, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import AddAdminModal from '../components/AddAdminModal'
@@ -7,7 +7,14 @@ import FilterMenu, { FilterOption, FilterSection } from '../components/FilterMen
 import IconButton from '../components/IconButton'
 import { primaryButton } from '../components/Modal'
 import { SampleDataNotice, StatusRow } from '../components/OrganizationsOverview'
-import { fetchOfficers, type Officer, type OfficerStatus, setOfficerStatus, usingSampleOfficers } from '../lib/officers'
+import {
+  fetchOfficers,
+  type Officer,
+  type OfficerStatus,
+  removeOfficer,
+  setOfficerStatus,
+  usingSampleOfficers,
+} from '../lib/officers'
 
 // Several organizations can be ticked at once; an empty list means all of them.
 type Filters = { organizationIds: string[]; position: string; status: OfficerStatus | '' }
@@ -28,6 +35,8 @@ export default function AdminOfficersPage() {
   const [filters, setFilters] = useState<Filters>(NO_FILTERS)
   // The officer whose status is about to change.
   const [toggling, setToggling] = useState<Officer | null>(null)
+  // The officer about to be removed for good.
+  const [removing, setRemoving] = useState<Officer | null>(null)
   const [adding, setAdding] = useState(false)
   const [sample, setSample] = useState(false)
 
@@ -88,7 +97,7 @@ export default function AdminOfficersPage() {
             </p>
           </div>
           <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
-            <label className="relative flex-1 sm:w-72 sm:flex-none">
+            <label className="relative min-w-64 flex-1 sm:w-96 sm:flex-none">
               <span className="sr-only">Search admin officers</span>
               <Search
                 size={16}
@@ -177,22 +186,22 @@ export default function AdminOfficersPage() {
           <table className="w-full min-w-[760px] text-left text-sm">
             <thead className="border-y border-zinc-200 bg-surface text-xs tracking-wide text-zinc-500 uppercase">
               <tr>
-                <th scope="col" className="px-6 py-3 font-medium">
+                <th scope="col" className="px-6 py-3 text-center font-medium">
                   Admin No.
                 </th>
-                <th scope="col" className="px-6 py-3 font-medium">
+                <th scope="col" className="px-6 py-3 text-center font-medium">
                   Admin Name
                 </th>
-                <th scope="col" className="px-6 py-3 font-medium">
+                <th scope="col" className="px-6 py-3 text-center font-medium">
                   Organization
                 </th>
-                <th scope="col" className="px-6 py-3 font-medium">
+                <th scope="col" className="px-6 py-3 text-center font-medium">
                   Position
                 </th>
-                <th scope="col" className="px-6 py-3 font-medium">
+                <th scope="col" className="px-6 py-3 text-center font-medium">
                   Status
                 </th>
-                <th scope="col" className="px-6 py-3 text-right font-medium">
+                <th scope="col" className="px-6 py-3 text-center font-medium">
                   Action
                 </th>
               </tr>
@@ -200,32 +209,26 @@ export default function AdminOfficersPage() {
             <tbody className="divide-y divide-zinc-100">
               {shown.map((officer) => (
                 <tr key={officer.id} className="transition hover:bg-surface/60">
-                  <td className="px-6 py-4 font-medium text-zinc-700 tabular-nums">{officer.admin_no}</td>
+                  <td className="px-6 py-4 text-center font-medium text-zinc-700 tabular-nums">{officer.admin_no}</td>
                   <td className="px-6 py-4">
                     <p className="font-medium text-brand-navy">{officer.name}</p>
                     {officer.email && <p className="text-xs text-zinc-500">{officer.email}</p>}
                   </td>
-                  <td className="px-6 py-4 text-zinc-700">{officer.organization_name}</td>
-                  <td className="px-6 py-4 text-zinc-700">{officer.position}</td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 text-center text-zinc-700">{officer.organization_name}</td>
+                  <td className="px-6 py-4 text-center text-zinc-700">{officer.position}</td>
+                  <td className="px-6 py-4 text-center">
                     <StatusBadge status={officer.status} />
                   </td>
                   <td className="px-6 py-4">
-                    <div className="flex justify-end">
-                      {officer.status === 'active' ? (
-                        <IconButton
-                          icon={CirclePause}
-                          label={`Deactivate ${officer.name}`}
-                          danger
-                          onClick={() => setToggling(officer)}
-                        />
-                      ) : (
-                        <IconButton
-                          icon={CirclePlay}
-                          label={`Reactivate ${officer.name}`}
-                          onClick={() => setToggling(officer)}
-                        />
-                      )}
+                    <div className="flex items-center justify-center gap-2">
+                      <StatusSwitch officer={officer} onToggle={() => setToggling(officer)} />
+                      <IconButton
+                        icon={Trash2}
+                        label={`Remove ${officer.name}`}
+                        danger
+                        colored
+                        onClick={() => setRemoving(officer)}
+                      />
                     </div>
                   </td>
                 </tr>
@@ -257,12 +260,26 @@ export default function AdminOfficersPage() {
         />
       )}
 
+      {removing && (
+        <ConfirmDialog
+          title="Remove officer?"
+          message={`${removing.name} (${removing.admin_no}) will be removed as ${removing.position} of ${removing.organization_name} for good, and lose officer access unless they hold another active position. This cannot be undone.`}
+          confirmLabel="Remove"
+          danger
+          onClose={() => setRemoving(null)}
+          onConfirm={async () => {
+            await removeOfficer(removing.id)
+            setOfficers((current) => current?.filter((officer) => officer.id !== removing.id) ?? null)
+          }}
+        />
+      )}
+
       {toggling && (
         <ConfirmDialog
           {...(toggling.status === 'active'
             ? {
                 title: 'Deactivate officer?',
-                message: `${toggling.name} (${toggling.admin_no}) will be marked Inactive for ${toggling.organization_name} and lose officer access unless they lead another organization. You can reactivate them while the organization has no other active president.`,
+                message: `${toggling.name} (${toggling.admin_no}) will be marked Inactive as ${toggling.position} of ${toggling.organization_name} and lose officer access unless they hold another active position. You can reactivate them while no one else is the organization’s active ${toggling.position.toLowerCase()}.`,
                 confirmLabel: 'Deactivate',
                 danger: true,
               }
@@ -288,14 +305,40 @@ export default function AdminOfficersPage() {
 
 function StatusBadge({ status }: { status: OfficerStatus }) {
   return status === 'active' ? (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700 ring-1 ring-green-600/20">
-      <span className="size-1.5 rounded-full bg-green-600" aria-hidden="true" />
+    <span className="inline-flex items-center rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700 ring-1 ring-green-600/20">
       Active
     </span>
   ) : (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-600 ring-1 ring-zinc-500/20">
-      <span className="size-1.5 rounded-full bg-zinc-400" aria-hidden="true" />
+    <span className="inline-flex items-center rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-600 ring-1 ring-zinc-500/20">
       Inactive
     </span>
+  )
+}
+
+// Green with a check while active, red with a cross while inactive. Clicking asks
+// to confirm before the status changes.
+function StatusSwitch({ officer, onToggle }: { officer: Officer; onToggle: () => void }) {
+  const active = officer.status === 'active'
+  const label = `${active ? 'Deactivate' : 'Reactivate'} ${officer.name}`
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={active}
+      aria-label={label}
+      title={label}
+      onClick={onToggle}
+      className={`relative h-5 w-9 shrink-0 rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-brand-blue/40 focus-visible:outline-none ${
+        active ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-rose-500 hover:bg-rose-600'
+      }`}
+    >
+      <span
+        className={`absolute top-0.5 left-0.5 flex size-4 items-center justify-center rounded-full bg-white shadow transition-transform ${
+          active ? 'translate-x-4 text-emerald-500' : 'translate-x-0 text-rose-500'
+        }`}
+      >
+        {active ? <Check size={10} strokeWidth={3.5} aria-hidden="true" /> : <X size={10} strokeWidth={3.5} aria-hidden="true" />}
+      </span>
+    </button>
   )
 }

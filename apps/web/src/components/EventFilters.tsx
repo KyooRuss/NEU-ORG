@@ -8,11 +8,14 @@ export default function EventFilters({
   events,
   filters,
   onChange,
+  showMonth = true,
 }: {
   // The page's events, before filtering. The Organization list is built from them.
   events: OrgEvent[] | null
   filters: EventFilterValues
   onChange: (filters: EventFilterValues) => void
+  // False hides the Month picker (Event Requests doesn't use it).
+  showMonth?: boolean
 }) {
   const set = (changes: Partial<EventFilterValues>) => onChange({ ...filters, ...changes })
 
@@ -61,15 +64,17 @@ export default function EventFilters({
         </select>
       </label>
 
-      <label>
-        <span className="sr-only">Month</span>
-        <input
-          type="month"
-          value={filters.month}
-          onChange={(change) => set({ month: change.target.value })}
-          className={`px-4 ${fieldClass}`}
-        />
-      </label>
+      {showMonth && (
+        <label>
+          <span className="sr-only">Month</span>
+          <input
+            type="month"
+            value={filters.month}
+            onChange={(change) => set({ month: change.target.value })}
+            className={`px-4 ${fieldClass}`}
+          />
+        </label>
+      )}
 
       {hasFilters(filters) && (
         <button

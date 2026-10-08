@@ -1,5 +1,5 @@
-import { Building2, Check, Eye, Filter, Pencil, Plus, Search, Trash2 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { Building2, Eye, Pencil, Plus, Search, Trash2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
 
 import {
   archiveOrganization,
@@ -11,6 +11,7 @@ import {
   usingSampleData,
 } from '../lib/organizations'
 import ConfirmDialog from './ConfirmDialog'
+import FilterMenu, { FilterOption, FilterSection } from './FilterMenu'
 import IconButton from './IconButton'
 import OrganizationDetailsModal from './OrganizationDetailsModal'
 import OrganizationFormModal from './OrganizationFormModal'
@@ -208,81 +209,22 @@ function DepartmentFilter({
   value: string | null
   onChange: (department: string | null) => void
 }) {
-  const [open, setOpen] = useState(false)
-  const wrapper = useRef<HTMLDivElement>(null)
-
-  // Close the menu on a click outside it or on Escape.
-  useEffect(() => {
-    if (!open) return
-    const closeOnOutside = (event: PointerEvent) => {
-      if (!wrapper.current?.contains(event.target as Node)) setOpen(false)
-    }
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false)
-    }
-    document.addEventListener('pointerdown', closeOnOutside)
-    document.addEventListener('keydown', closeOnEscape)
-    return () => {
-      document.removeEventListener('pointerdown', closeOnOutside)
-      document.removeEventListener('keydown', closeOnEscape)
-    }
-  }, [open])
-
-  const pick = (department: string | null) => {
-    onChange(department)
-    setOpen(false)
-  }
-
-  const option = (label: string, department: string | null) => {
-    const selected = value === department
-    return (
-      <button
-        key={label}
-        type="button"
-        role="menuitemradio"
-        aria-checked={selected}
-        onClick={() => pick(department)}
-        className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition hover:bg-surface ${
-          selected ? 'font-semibold text-brand-navy' : 'text-zinc-700'
-        }`}
-      >
-        <span className="flex-1">{label}</span>
-        {selected && <Check size={16} className="shrink-0 text-brand-blue" aria-hidden="true" />}
-      </button>
-    )
-  }
-
   return (
-    <div ref={wrapper} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((current) => !current)}
-        aria-label={value ? `Filter: ${value}` : 'Filter by department'}
-        title={value ? `Filter: ${value}` : 'Filter by department'}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        className={`relative flex size-9 items-center justify-center rounded-full transition ${
-          value ? 'bg-brand-blue text-white hover:bg-brand-navy' : 'bg-field text-zinc-600 hover:bg-zinc-200'
-        }`}
-      >
-        <Filter size={16} aria-hidden="true" />
-      </button>
-
-      {open && (
-        <div
-          role="menu"
-          aria-label="Filter by department"
-          className="absolute right-0 z-20 mt-2 max-h-96 w-72 overflow-y-auto rounded-xl bg-white p-2 shadow-lg ring-1 ring-zinc-200"
-        >
-          {option('All Organizations', null)}
-          {option(UNIVERSITY_WIDE, UNIVERSITY_WIDE)}
-          <p className="mt-2 border-t border-zinc-100 px-3 pt-3 pb-1 text-xs font-medium tracking-wide text-zinc-500 uppercase">
-            Department
-          </p>
-          {COLLEGES.map((college) => option(college, college))}
-        </div>
-      )}
-    </div>
+    <FilterMenu label={value ? `Filter: ${value}` : 'Filter by department'} active={!!value} closeOnSelect>
+      <FilterSection>
+        <FilterOption label="All Organizations" selected={value === null} onSelect={() => onChange(null)} />
+        <FilterOption
+          label={UNIVERSITY_WIDE}
+          selected={value === UNIVERSITY_WIDE}
+          onSelect={() => onChange(UNIVERSITY_WIDE)}
+        />
+      </FilterSection>
+      <FilterSection title="Department">
+        {COLLEGES.map((college) => (
+          <FilterOption key={college} label={college} selected={value === college} onSelect={() => onChange(college)} />
+        ))}
+      </FilterSection>
+    </FilterMenu>
   )
 }
 

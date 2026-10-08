@@ -20,7 +20,7 @@ const organizations = [
     description: 'A community of student developers building projects, joining hackathons and sharing what they learn.',
   },
   {
-    // Left without a president so "Assign president" can be shown in a demo.
+    // Left without a president so "Add admin" can be shown in a demo.
     name: 'NEU Debate Society',
     categories: ['Special Interest'],
     department: 'University Wide',
@@ -195,6 +195,7 @@ async function linkPresident(userId, account) {
     .from('officers')
     .select('profile_id, profile:profiles(email)')
     .eq('organization_id', organizationId)
+    .eq('position', 'President')
     .eq('status', 'active')
     .maybeSingle();
   if (error) fail(`Could not check the president of ${account.organization}: ${error.message}`);

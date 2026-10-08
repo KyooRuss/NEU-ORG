@@ -1,7 +1,7 @@
 import { CirclePause, CirclePlay, Search, UserPlus } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
-import AssignPresidentModal from '../components/AssignPresidentModal'
+import AddAdminModal from '../components/AddAdminModal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import FilterMenu, { FilterOption, FilterSection } from '../components/FilterMenu'
 import IconButton from '../components/IconButton'
@@ -28,7 +28,7 @@ export default function AdminOfficersPage() {
   const [filters, setFilters] = useState<Filters>(NO_FILTERS)
   // The officer whose status is about to change.
   const [toggling, setToggling] = useState<Officer | null>(null)
-  const [assigning, setAssigning] = useState(false)
+  const [adding, setAdding] = useState(false)
   const [sample, setSample] = useState(false)
 
   useEffect(() => {
@@ -156,12 +156,12 @@ export default function AdminOfficersPage() {
             {!sample && (
               <button
                 type="button"
-                onClick={() => setAssigning(true)}
+                onClick={() => setAdding(true)}
                 disabled={officers === null}
                 className={`flex items-center gap-2 ${primaryButton}`}
               >
                 <UserPlus size={16} aria-hidden="true" />
-                Assign president
+                Add admin
               </button>
             )}
           </div>
@@ -240,7 +240,7 @@ export default function AdminOfficersPage() {
                   officers !== null && shown.length === 0
                     ? narrowed
                       ? 'No admin officers match your search or filters.'
-                      : 'No admin officers yet. Use Assign president to make a student the president of an organization.'
+                      : 'No admin officers yet. Use Add admin to add an organization’s president or adviser.'
                     : null
                 }
               />
@@ -249,11 +249,11 @@ export default function AdminOfficersPage() {
         </div>
       </section>
 
-      {assigning && (
-        <AssignPresidentModal
+      {adding && (
+        <AddAdminModal
           officers={officers ?? []}
-          onClose={() => setAssigning(false)}
-          onAssigned={() => setReloadKey((key) => key + 1)}
+          onClose={() => setAdding(false)}
+          onAdded={() => setReloadKey((key) => key + 1)}
         />
       )}
 

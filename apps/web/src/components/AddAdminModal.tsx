@@ -1,27 +1,36 @@
 import { Search, TriangleAlert, X } from 'lucide-react'
 import { type FormEvent, useEffect, useState } from 'react'
 
-import { assignPresident, type Officer, type PresidentCandidate, searchPresidentCandidates } from '../lib/officers'
+import {
+  assignOfficer,
+  type Officer,
+  type OfficerCandidate,
+  OFFICER_POSITIONS,
+  type OfficerPosition,
+  searchOfficerCandidates,
+} from '../lib/officers'
 import { fetchOrganizations, type Organization } from '../lib/organizations'
 import Modal, { primaryButton, secondaryButton } from './Modal'
 
 type Props = {
-  // The officers already listed on the page, used to name the current president.
+  // The officers already listed on the page, used to name who currently holds the position.
   officers: Officer[]
   onClose: () => void
-  onAssigned: () => void
+  onAdded: () => void
 }
 
 const fieldClass =
   'mt-1 w-full rounded-lg bg-field px-3 py-2 text-sm text-zinc-800 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-brand-blue/40'
 
-export default function AssignPresidentModal({ officers, onClose, onAssigned }: Props) {
+// Adds a President or Adviser to an organization, replacing whoever holds that position there.
+export default function AddAdminModal({ officers, onClose, onAdded }: Props) {
   const [organizations, setOrganizations] = useState<Organization[] | null>(null)
   const [organizationId, setOrganizationId] = useState('')
+  const [position, setPosition] = useState<OfficerPosition | ''>('')
   const [query, setQuery] = useState('')
-  const [results, setResults] = useState<PresidentCandidate[] | null>(null)
+  const [results, setResults] = useState<OfficerCandidate[] | null>(null)
   const [searching, setSearching] = useState(false)
-  const [student, setStudent] = useState<PresidentCandidate | null>(null)
+  const [person, setPerson] = useState<OfficerCandidate | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -41,7 +50,7 @@ export default function AssignPresidentModal({ officers, onClose, onAssigned }: 
     let cancelled = false
     setSearching(true)
     const timer = setTimeout(() => {
-      searchPresidentCandidates(text)
+      searchOfficerCandidates(text)
         .then((found) => {
           if (!cancelled) setResults(found)
         })
@@ -58,17 +67,21 @@ export default function AssignPresidentModal({ officers, onClose, onAssigned }: 
     }
   }, [query])
 
-  const current = officers.find((officer) => officer.organization_id === organizationId && officer.status === 'active')
-  const alreadyPresident = !!student && current?.profile_id === student.id
+  const current = officers.find(
+    (officer) =>
+      officer.organization_id === organizationId && officer.position === position && officer.status === 'active',
+  )
+  const alreadyHolds = !!person && current?.profile_id === person.id
+  const ready = !!organizationId && !!position && !!person && !alreadyHolds
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
-    if (!student || !organizationId || alreadyPresident) return
+    if (!ready) return
     setSaving(true)
     setError(null)
     try {
-      await assignPresident(student.id, organizationId)
-      onAssigned()
+      await assignOfficer(person!.id, organizationId, position as OfficerPosition)
+      onAdded()
       onClose()
     } catch (caught) {
       setError((caught as Error).message)
@@ -78,7 +91,7 @@ export default function AssignPresidentModal({ officers, onClose, onAssigned }: 
 
   return (
     <Modal
-      title="Assign president"
+      title="Assign a new admin"
       size="sm"
       onClose={saving ? () => {} : onClose}
       footer={
@@ -86,18 +99,13 @@ export default function AssignPresidentModal({ officers, onClose, onAssigned }: 
           <button type="button" onClick={onClose} disabled={saving} className={secondaryButton}>
             Cancel
           </button>
-          <button
-            type="submit"
-            form="assign-president-form"
-            disabled={saving || !student || !organizationId || alreadyPresident}
-            className={primaryButton}
-          >
-            {saving ? 'Saving…' : current ? 'Replace president' : 'Assign president'}
+          <button type="submit" form="add-admin-form" disabled={saving || !ready} className={primaryButton}>
+            {saving ? 'Saving…' : 'Add admin'}
           </button>
         </>
       }
     >
-      <form id="assign-president-form" onSubmit={(event) => void handleSubmit(event)} className="grid gap-5">
+      <form id="add-admin-form" onSubmit={(event) => void handleSubmit(event)} className="grid gap-5">
         <label className="text-sm text-zinc-700">
           Organization <span className="text-red-600">*</span>
           <select
@@ -115,17 +123,33 @@ export default function AssignPresidentModal({ officers, onClose, onAssigned }: 
           </select>
         </label>
 
+        <label className="text-sm text-zinc-700">
+          Position <span className="text-red-600">*</span>
+          <select
+            value={position}
+            onChange={(event) => setPosition(event.target.value as OfficerPosition | '')}
+            className={fieldClass}
+          >
+            <option value="">Choose a position</option>
+            {OFFICER_POSITIONS.map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
+          </select>
+        </label>
+
         <div className="text-sm text-zinc-700">
-          <p id="assign-student-label">
-            Student <span className="text-red-600">*</span>
+          <p id="add-admin-name-label">
+            Name <span className="text-red-600">*</span>
           </p>
-          {student ? (
+          {person ? (
             <div className="mt-1 flex items-center justify-between gap-3 rounded-lg bg-field px-3 py-2">
-              <CandidateText candidate={student} />
+              <CandidateText candidate={person} />
               <button
                 type="button"
-                onClick={() => setStudent(null)}
-                aria-label={`Choose a different student than ${student.name}`}
+                onClick={() => setPerson(null)}
+                aria-label={`Choose someone other than ${person.name}`}
                 className="flex size-7 shrink-0 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-zinc-200 hover:text-zinc-800"
               >
                 <X size={16} aria-hidden="true" />
@@ -143,8 +167,8 @@ export default function AssignPresidentModal({ officers, onClose, onAssigned }: 
                   type="search"
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Search name, email or student no."
-                  aria-labelledby="assign-student-label"
+                  placeholder="Search name or email"
+                  aria-labelledby="add-admin-name-label"
                   className={`${fieldClass} pl-9`}
                 />
               </div>
@@ -154,7 +178,7 @@ export default function AssignPresidentModal({ officers, onClose, onAssigned }: 
                     <li key={candidate.id}>
                       <button
                         type="button"
-                        onClick={() => setStudent(candidate)}
+                        onClick={() => setPerson(candidate)}
                         className="w-full px-3 py-2 text-left transition hover:bg-surface"
                       >
                         <CandidateText candidate={candidate} />
@@ -163,7 +187,7 @@ export default function AssignPresidentModal({ officers, onClose, onAssigned }: 
                   ))}
                   {(searching || results?.length === 0) && (
                     <li className="px-3 py-2 text-zinc-500">
-                      {searching ? 'Searching…' : 'No active students match. They must log in once before they show here.'}
+                      {searching ? 'Searching…' : 'No active accounts match. They must log in once before they show here.'}
                     </li>
                   )}
                 </ul>
@@ -175,13 +199,13 @@ export default function AssignPresidentModal({ officers, onClose, onAssigned }: 
         {current && (
           <p
             className={`flex gap-2 rounded-lg px-3 py-2 text-sm ${
-              alreadyPresident ? 'bg-zinc-100 text-zinc-600' : 'bg-amber-50 text-amber-800'
+              alreadyHolds ? 'bg-zinc-100 text-zinc-600' : 'bg-amber-50 text-amber-800'
             }`}
           >
             <TriangleAlert size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
-            {alreadyPresident
-              ? `${current.name} is already the president of this organization.`
-              : `${current.name} is the current president. Saving will set them to Inactive, and they lose officer access unless they lead another organization.`}
+            {alreadyHolds
+              ? `${current.name} is already the ${position.toLowerCase()} of this organization.`
+              : `${current.name} is the current ${position.toLowerCase()}. Saving will set them to Inactive, and they lose officer access unless they hold another active position.`}
           </p>
         )}
 
@@ -195,7 +219,7 @@ export default function AssignPresidentModal({ officers, onClose, onAssigned }: 
   )
 }
 
-function CandidateText({ candidate }: { candidate: PresidentCandidate }) {
+function CandidateText({ candidate }: { candidate: OfficerCandidate }) {
   return (
     <span className="block min-w-0">
       <span className="block truncate font-medium text-brand-navy">{candidate.name}</span>

@@ -1,11 +1,15 @@
-import { CirclePause, CirclePlay, ListFilter, Search, X } from 'lucide-react'
+import { Search, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import ConfirmDialog from '../components/ConfirmDialog'
+import FilterMenu, { FilterOption, FilterSection } from '../components/FilterMenu'
 import IconButton from '../components/IconButton'
 import { StatusRow } from '../components/OrganizationsOverview'
+import StatusSwitch from '../components/StatusSwitch'
 import {
+  ACCOUNT_STATUS_LABELS,
   type AccountStatus,
+  archiveStudent,
   fetchStudents,
   setStudentStatus,
   type Student,
@@ -17,12 +21,6 @@ type Filters = { status: AccountStatus | ''; yearLevel: string }
 
 const NO_FILTERS: Filters = { status: '', yearLevel: '' }
 
-const STATUS_LABELS: Record<AccountStatus, string> = {
-  active: 'Active',
-  suspended: 'Suspended',
-  inactive: 'Inactive',
-}
-
 const fieldClass =
   'rounded-full bg-field py-2 text-sm text-zinc-800 outline-none focus:ring-2 focus:ring-brand-blue/40'
 
@@ -32,9 +30,10 @@ export default function StudentsPage() {
   const [reloadKey, setReloadKey] = useState(0)
   const [query, setQuery] = useState('')
   const [filters, setFilters] = useState<Filters>(NO_FILTERS)
-  const [showFilters, setShowFilters] = useState(false)
   // The student whose account is about to be suspended or reactivated.
   const [toggling, setToggling] = useState<Student | null>(null)
+  // The student about to be moved to Trash.
+  const [deleting, setDeleting] = useState<Student | null>(null)
   const [sample, setSample] = useState(false)
 
   useEffect(() => {
@@ -64,33 +63,21 @@ export default function StudentsPage() {
       (!filters.status || student.status === filters.status) &&
       (!filters.yearLevel || student.year_level === Number(filters.yearLevel)),
   )
-  const filterCount = Number(!!filters.status) + Number(!!filters.yearLevel)
-  const narrowed = !!search || filterCount > 0
+  const filtering = !!filters.status || !!filters.yearLevel
+  const narrowed = !!search || filtering
 
   return (
     <>
-      <header>
-        <h1 className="text-2xl font-semibold text-brand-navy">Students</h1>
-        <p className="mt-1 text-sm text-zinc-500">Manage and track all students</p>
-      </header>
-
-      {sample && (
-        <p className="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          <strong className="font-semibold">Showing sample data.</strong> The student columns aren’t
-          in Supabase yet, so changes here only last until you reload the page. Apply the student
-          fields migration to save real data.
-        </p>
-      )}
-
-      <section className="mt-6 rounded-xl bg-white shadow-sm ring-1 ring-zinc-200">
+      <section className="rounded-xl bg-white shadow-sm ring-1 ring-zinc-200">
         <div className="flex flex-wrap items-center justify-between gap-4 p-6">
-          <p className="text-sm text-zinc-500">
-            Total Students:{' '}
-            <span className="font-semibold text-brand-navy">{students?.length ?? '—'}</span>
-            {students && narrowed && <span> · Showing {shown.length}</span>}
-          </p>
+          <div>
+            <h1 className="font-semibold text-brand-navy">Students</h1>
+            <p className="mt-1 text-sm text-zinc-500">
+              Total Students: <span className="font-semibold text-brand-navy">{students?.length ?? '—'}</span>
+            </p>
+          </div>
           <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
-            <label className="relative flex-1 sm:w-72 sm:flex-none">
+            <label className="relative min-w-64 flex-1 sm:w-96 sm:flex-none">
               <span className="sr-only">Search students</span>
               <Search
                 size={16}
@@ -101,95 +88,74 @@ export default function StudentsPage() {
                 type="search"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search students..."
+                placeholder="Search name, student no. or email address"
                 className={`w-full pr-4 pl-9 placeholder:text-zinc-500 ${fieldClass}`}
               />
             </label>
-            <button
-              type="button"
-              onClick={() => setShowFilters((value) => !value)}
-              aria-expanded={showFilters}
-              aria-controls="student-filters"
-              className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition ${
-                showFilters || filterCount > 0
-                  ? 'border-brand-blue bg-brand-blue/10 text-brand-blue'
-                  : 'border-zinc-300 text-zinc-700 hover:bg-zinc-50'
-              }`}
-            >
-              <ListFilter size={16} aria-hidden="true" />
-              Filter
-              {filterCount > 0 && (
-                <span className="rounded-full bg-brand-blue px-1.5 text-xs text-white">{filterCount}</span>
-              )}
-            </button>
+            {/* One pick per section; the menu stays open so both can be set. */}
+            <FilterMenu label="Filter by year level or status" active={filtering}>
+              <FilterSection title="Year Level">
+                <FilterOption
+                  label="All Year Levels"
+                  selected={!filters.yearLevel}
+                  onSelect={() => setFilters({ ...filters, yearLevel: '' })}
+                />
+                {YEAR_LEVELS.map((level) => (
+                  <FilterOption
+                    key={level}
+                    label={`Year ${level}`}
+                    selected={filters.yearLevel === String(level)}
+                    onSelect={() => setFilters({ ...filters, yearLevel: String(level) })}
+                  />
+                ))}
+              </FilterSection>
+              <FilterSection title="Status">
+                <FilterOption
+                  label="All Statuses"
+                  selected={!filters.status}
+                  onSelect={() => setFilters({ ...filters, status: '' })}
+                />
+                {(Object.entries(ACCOUNT_STATUS_LABELS) as [AccountStatus, string][]).map(([status, label]) => (
+                  <FilterOption
+                    key={status}
+                    label={label}
+                    selected={filters.status === status}
+                    onSelect={() => setFilters({ ...filters, status })}
+                  />
+                ))}
+              </FilterSection>
+            </FilterMenu>
           </div>
         </div>
 
-        {showFilters && (
-          <div id="student-filters" className="flex flex-wrap items-center gap-3 px-6 pb-4">
-            <label className="flex items-center gap-2 text-sm text-zinc-600">
-              Year level
-              <select
-                value={filters.yearLevel}
-                onChange={(event) => setFilters({ ...filters, yearLevel: event.target.value })}
-                className={`px-4 ${fieldClass}`}
-              >
-                <option value="">All year levels</option>
-                {YEAR_LEVELS.map((level) => (
-                  <option key={level} value={level}>
-                    Year {level}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex items-center gap-2 text-sm text-zinc-600">
-              Status
-              <select
-                value={filters.status}
-                onChange={(event) => setFilters({ ...filters, status: event.target.value as Filters['status'] })}
-                className={`px-4 ${fieldClass}`}
-              >
-                <option value="">All statuses</option>
-                {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {filterCount > 0 && (
-              <button
-                type="button"
-                onClick={() => setFilters(NO_FILTERS)}
-                className="flex items-center gap-1.5 rounded-full px-3 py-2 text-sm text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900"
-              >
-                <X size={14} aria-hidden="true" />
-                Clear
-              </button>
-            )}
-          </div>
+        {sample && (
+          <p className="mx-6 mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <strong className="font-semibold">Showing sample data.</strong> The student columns aren’t
+            in Supabase yet, so changes here only last until you reload the page. Apply the student
+            fields migration to save real data.
+          </p>
         )}
 
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-left text-sm">
             <thead className="border-y border-zinc-200 bg-surface text-xs tracking-wide text-zinc-500 uppercase">
               <tr>
-                <th scope="col" className="px-6 py-3 font-medium">
+                <th scope="col" className="px-6 py-3 text-center font-medium">
                   Student No.
                 </th>
-                <th scope="col" className="px-6 py-3 font-medium">
+                <th scope="col" className="px-6 py-3 text-center font-medium">
                   Name
                 </th>
                 <th scope="col" className="px-6 py-3 text-center font-medium">
                   Year Level
                 </th>
-                <th scope="col" className="px-6 py-3 font-medium">
+                <th scope="col" className="px-6 py-3 text-center font-medium">
                   Email Address
                 </th>
-                <th scope="col" className="px-6 py-3 font-medium">
+                <th scope="col" className="px-6 py-3 text-center font-medium">
                   Status
                 </th>
-                <th scope="col" className="px-6 py-3 text-right font-medium">
+                <th scope="col" className="px-6 py-3 text-center font-medium">
                   Action
                 </th>
               </tr>
@@ -197,29 +163,30 @@ export default function StudentsPage() {
             <tbody className="divide-y divide-zinc-100">
               {shown.map((student) => (
                 <tr key={student.id} className="transition hover:bg-surface/60">
-                  <td className="px-6 py-4 font-medium text-zinc-700 tabular-nums">{student.student_no ?? '—'}</td>
+                  <td className="px-6 py-4 text-center font-medium text-zinc-700 tabular-nums">
+                    {student.student_no ?? '—'}
+                  </td>
                   <td className="px-6 py-4 font-medium text-brand-navy">{student.name}</td>
                   <td className="px-6 py-4 text-center text-zinc-700">{student.year_level ?? '—'}</td>
-                  <td className="px-6 py-4 text-zinc-700">{student.email}</td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 text-center text-zinc-700">{student.email}</td>
+                  <td className="px-6 py-4 text-center">
                     <StatusBadge status={student.status} />
                   </td>
                   <td className="px-6 py-4">
-                    <div className="flex justify-end">
-                      {student.status === 'active' ? (
-                        <IconButton
-                          icon={CirclePause}
-                          label={`Suspend ${student.name}`}
-                          danger
-                          onClick={() => setToggling(student)}
-                        />
-                      ) : (
-                        <IconButton
-                          icon={CirclePlay}
-                          label={`Reactivate ${student.name}`}
-                          onClick={() => setToggling(student)}
-                        />
-                      )}
+                    <div className="flex items-center justify-center gap-2">
+                      {/* On = Active. Off covers Suspended and Inactive; turning it on reactivates. */}
+                      <StatusSwitch
+                        on={student.status === 'active'}
+                        label={`${student.status === 'active' ? 'Suspend' : 'Reactivate'} ${student.name}`}
+                        onToggle={() => setToggling(student)}
+                      />
+                      <IconButton
+                        icon={Trash2}
+                        label={`Move ${student.name} to Trash`}
+                        danger
+                        colored
+                        onClick={() => setDeleting(student)}
+                      />
                     </div>
                   </td>
                 </tr>
@@ -242,6 +209,20 @@ export default function StudentsPage() {
           </table>
         </div>
       </section>
+
+      {deleting && (
+        <ConfirmDialog
+          title="Move to Trash?"
+          message={`${deleting.name} (${deleting.email}) will be hidden from the Students list. You can restore them, or delete their account for good, from Trash.`}
+          confirmLabel="Move to Trash"
+          danger
+          onClose={() => setDeleting(null)}
+          onConfirm={async () => {
+            await archiveStudent(deleting.id)
+            setStudents((current) => current?.filter((student) => student.id !== deleting.id) ?? null)
+          }}
+        />
+      )}
 
       {toggling && (
         <ConfirmDialog
@@ -272,20 +253,19 @@ export default function StudentsPage() {
   )
 }
 
-const BADGE_STYLES: Record<AccountStatus, { badge: string; dot: string }> = {
-  active: { badge: 'bg-green-50 text-green-700 ring-green-600/20', dot: 'bg-green-600' },
-  suspended: { badge: 'bg-red-50 text-red-700 ring-red-600/20', dot: 'bg-red-600' },
-  inactive: { badge: 'bg-zinc-100 text-zinc-600 ring-zinc-500/20', dot: 'bg-zinc-400' },
+const BADGE_STYLES: Record<AccountStatus, string> = {
+  active: 'bg-green-50 text-green-700 ring-green-600/20',
+  suspended: 'bg-red-50 text-red-700 ring-red-600/20',
+  inactive: 'bg-zinc-100 text-zinc-600 ring-zinc-500/20',
 }
 
-function StatusBadge({ status }: { status: AccountStatus }) {
-  const style = BADGE_STYLES[status]
+// Also used by the Professors page.
+export function StatusBadge({ status }: { status: AccountStatus }) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${style.badge}`}
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${BADGE_STYLES[status]}`}
     >
-      <span className={`size-1.5 rounded-full ${style.dot}`} aria-hidden="true" />
-      {STATUS_LABELS[status]}
+      {ACCOUNT_STATUS_LABELS[status]}
     </span>
   )
 }

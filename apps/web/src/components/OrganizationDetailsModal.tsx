@@ -56,7 +56,8 @@ export default function OrganizationDetailsModal({
       <div className="mt-6 grid gap-x-10 gap-y-6 lg:grid-cols-[3fr_2fr]">
         <dl className="grid content-start gap-5 text-sm">
           <Detail label="Short Description / Overview">{org.description}</Detail>
-          <Detail label="Mission & Vision">{org.mission_vision}</Detail>
+          <Detail label="Vision">{org.vision}</Detail>
+          <Detail label="Mission">{org.mission}</Detail>
           <Detail label="Contact Details">
             {(org.room_number || org.telegram_contact || org.facebook_contact) && (
               <ul className="grid gap-1.5">
@@ -95,8 +96,7 @@ export default function OrganizationDetailsModal({
               </ol>
             )}
           </Detail>
-          <Detail label="Program Eligibility">{org.program_eligibility}</Detail>
-          <Detail label="Member / Alumni Testimonials">
+          <Detail label="Department">{org.department}</Detail>          <Detail label="Member / Alumni Testimonials">
             {org.testimonials.length > 0 && (
               <div className="grid gap-3">
                 {org.testimonials.map((item, index) => (

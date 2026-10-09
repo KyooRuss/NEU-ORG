@@ -7,11 +7,13 @@ type ModalProps = {
   children: ReactNode
   footer?: ReactNode
   size?: 'sm' | 'lg' | 'xl'
+  // Center the title in the header instead of starting it on the left.
+  centerTitle?: boolean
 }
 
 const sizes = { sm: 'max-w-md', lg: 'max-w-2xl', xl: 'max-w-6xl' }
 
-export default function Modal({ title, onClose, children, footer, size = 'lg' }: ModalProps) {
+export default function Modal({ title, onClose, children, footer, size = 'lg', centerTitle = false }: ModalProps) {
   const titleId = useId()
 
   useEffect(() => {
@@ -42,7 +44,9 @@ export default function Modal({ title, onClose, children, footer, size = 'lg' }:
         className={`flex max-h-[90vh] w-full flex-col rounded-xl bg-white shadow-2xl ${sizes[size]}`}
       >
         <div className="flex items-center justify-between gap-4 border-b border-zinc-200 px-6 py-4">
-          <h2 id={titleId} className="font-semibold text-brand-navy">
+          {/* A blank space as wide as the close button keeps a centered title truly centered. */}
+          {centerTitle && <span className="size-8 shrink-0" aria-hidden="true" />}
+          <h2 id={titleId} className={`font-semibold text-brand-navy ${centerTitle ? 'flex-1 text-center' : ''}`}>
             {title}
           </h2>
           <button

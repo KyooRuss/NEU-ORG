@@ -1,16 +1,29 @@
-import { CirclePause, CirclePlay, ListFilter, Search, UserPlus, X } from 'lucide-react'
+import { Search, Trash2, UserPlus } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
-import AssignPresidentModal from '../components/AssignPresidentModal'
+import AddAdminModal from '../components/AddAdminModal'
 import ConfirmDialog from '../components/ConfirmDialog'
+import FilterMenu, { FilterOption, FilterSection } from '../components/FilterMenu'
 import IconButton from '../components/IconButton'
 import { primaryButton } from '../components/Modal'
 import { SampleDataNotice, StatusRow } from '../components/OrganizationsOverview'
-import { fetchOfficers, type Officer, type OfficerStatus, setOfficerStatus, usingSampleOfficers } from '../lib/officers'
+import StatusSwitch from '../components/StatusSwitch'
+import {
+  archiveOfficer,
+  fetchOfficers,
+  type Officer,
+  type OfficerStatus,
+  setOfficerStatus,
+  usingSampleOfficers,
+} from '../lib/officers'
 
-type Filters = { status: OfficerStatus | ''; organizationId: string }
+// Several organizations can be ticked at once; an empty list means all of them.
+type Filters = { organizationIds: string[]; position: string; status: OfficerStatus | '' }
 
-const NO_FILTERS: Filters = { status: '', organizationId: '' }
+const NO_FILTERS: Filters = { organizationIds: [], position: '', status: '' }
+
+// Shown in the Position filter even when no officer holds them yet. Others come from the officers listed.
+const ALWAYS_LISTED_POSITIONS = ['Adviser']
 
 const fieldClass =
   'rounded-full bg-field py-2 text-sm text-zinc-800 outline-none focus:ring-2 focus:ring-brand-blue/40'
@@ -21,10 +34,11 @@ export default function AdminOfficersPage() {
   const [reloadKey, setReloadKey] = useState(0)
   const [query, setQuery] = useState('')
   const [filters, setFilters] = useState<Filters>(NO_FILTERS)
-  const [showFilters, setShowFilters] = useState(false)
   // The officer whose status is about to change.
   const [toggling, setToggling] = useState<Officer | null>(null)
-  const [assigning, setAssigning] = useState(false)
+  // The officer about to be moved to Trash.
+  const [removing, setRemoving] = useState<Officer | null>(null)
+  const [adding, setAdding] = useState(false)
   const [sample, setSample] = useState(false)
 
   useEffect(() => {
@@ -44,9 +58,13 @@ export default function AdminOfficersPage() {
     }
   }, [reloadKey])
 
-  // Each organization once, A to Z, for the Organization filter.
+  // Each organization and position once, A to Z, for the filter menu.
   const organizations = [...new Map((officers ?? []).map((officer) => [officer.organization_id, officer.organization_name]))]
     .sort((a, b) => a[1].localeCompare(b[1]))
+  // Adviser is always offered, even before any officer holds it.
+  const positions = [...new Set([...ALWAYS_LISTED_POSITIONS, ...(officers ?? []).map((officer) => officer.position)])].sort(
+    (a, b) => a.localeCompare(b),
+  )
 
   const search = query.trim().toLowerCase()
   const shown = (officers ?? []).filter(
@@ -55,47 +73,32 @@ export default function AdminOfficersPage() {
         [officer.name, officer.admin_no, officer.organization_name].some((text) =>
           text.toLowerCase().includes(search),
         )) &&
-      (!filters.status || officer.status === filters.status) &&
-      (!filters.organizationId || officer.organization_id === filters.organizationId),
+      (filters.organizationIds.length === 0 || filters.organizationIds.includes(officer.organization_id)) &&
+      (!filters.position || officer.position === filters.position) &&
+      (!filters.status || officer.status === filters.status),
   )
-  const filterCount = Number(!!filters.status) + Number(!!filters.organizationId)
-  const narrowed = !!search || filterCount > 0
+  const filtering = filters.organizationIds.length > 0 || !!filters.position || !!filters.status
+  const narrowed = !!search || filtering
+
+  function toggleOrganization(id: string) {
+    const ids = filters.organizationIds
+    setFilters({ ...filters, organizationIds: ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id] })
+  }
 
   return (
     <>
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-brand-navy">Admin Officers</h1>
-          <p className="mt-1 text-sm text-zinc-500">Manage and track all admin officers</p>
-        </div>
-        {!sample && (
-          <button
-            type="button"
-            onClick={() => setAssigning(true)}
-            disabled={officers === null}
-            className={`flex items-center gap-2 ${primaryButton}`}
-          >
-            <UserPlus size={16} aria-hidden="true" />
-            Assign president
-          </button>
-        )}
-      </header>
-
-      {sample && (
-        <div className="mt-6">
-          <SampleDataNotice table="officers" />
-        </div>
-      )}
-
-      <section className="mt-6 rounded-xl bg-white shadow-sm ring-1 ring-zinc-200">
+      <section className="rounded-xl bg-white shadow-sm ring-1 ring-zinc-200">
         <div className="flex flex-wrap items-center justify-between gap-4 p-6">
-          <p className="text-sm text-zinc-500">
-            Total Admin Officers:{' '}
-            <span className="font-semibold text-brand-navy">{officers?.length ?? '—'}</span>
-            {officers && narrowed && <span> · Showing {shown.length}</span>}
-          </p>
+          <div>
+            <h1 className="font-semibold text-brand-navy">Admin Officers</h1>
+            <p className="mt-1 text-sm text-zinc-500">
+              Total Admin Officers:{' '}
+              <span className="font-semibold text-brand-navy">{officers?.length ?? '—'}</span>
+              {officers && narrowed && <span> · Showing {shown.length}</span>}
+            </p>
+          </div>
           <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
-            <label className="relative flex-1 sm:w-72 sm:flex-none">
+            <label className="relative min-w-64 flex-1 sm:w-96 sm:flex-none">
               <span className="sr-only">Search admin officers</span>
               <Search
                 size={16}
@@ -110,65 +113,73 @@ export default function AdminOfficersPage() {
                 className={`w-full pr-4 pl-9 placeholder:text-zinc-500 ${fieldClass}`}
               />
             </label>
-            <button
-              type="button"
-              onClick={() => setShowFilters((value) => !value)}
-              aria-expanded={showFilters}
-              aria-controls="officer-filters"
-              className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition ${
-                showFilters || filterCount > 0
-                  ? 'border-brand-blue bg-brand-blue/10 text-brand-blue'
-                  : 'border-zinc-300 text-zinc-700 hover:bg-zinc-50'
-              }`}
-            >
-              <ListFilter size={16} aria-hidden="true" />
-              Filter
-              {filterCount > 0 && (
-                <span className="rounded-full bg-brand-blue px-1.5 text-xs text-white">{filterCount}</span>
-              )}
-            </button>
+            {/* Organization allows several ticks; Position and Status one each. */}
+            <FilterMenu label="Filter by organization, position or status" active={filtering}>
+              <FilterSection title="Organization">
+                <FilterOption
+                  label="All Organizations"
+                  selected={filters.organizationIds.length === 0}
+                  onSelect={() => setFilters({ ...filters, organizationIds: [] })}
+                />
+                {organizations.map(([id, name]) => (
+                  <FilterOption
+                    key={id}
+                    label={name}
+                    multiple
+                    selected={filters.organizationIds.includes(id)}
+                    onSelect={() => toggleOrganization(id)}
+                  />
+                ))}
+              </FilterSection>
+              <FilterSection title="Position">
+                <FilterOption
+                  label="All Positions"
+                  selected={!filters.position}
+                  onSelect={() => setFilters({ ...filters, position: '' })}
+                />
+                {positions.map((position) => (
+                  <FilterOption
+                    key={position}
+                    label={position}
+                    selected={filters.position === position}
+                    onSelect={() => setFilters({ ...filters, position })}
+                  />
+                ))}
+              </FilterSection>
+              <FilterSection title="Status">
+                {(
+                  [
+                    ['', 'All Statuses'],
+                    ['active', 'Active'],
+                    ['inactive', 'Inactive'],
+                  ] as const
+                ).map(([status, label]) => (
+                  <FilterOption
+                    key={label}
+                    label={label}
+                    selected={filters.status === status}
+                    onSelect={() => setFilters({ ...filters, status })}
+                  />
+                ))}
+              </FilterSection>
+            </FilterMenu>
+            {!sample && (
+              <button
+                type="button"
+                onClick={() => setAdding(true)}
+                disabled={officers === null}
+                className={`flex items-center gap-2 ${primaryButton}`}
+              >
+                <UserPlus size={16} aria-hidden="true" />
+                Add admin
+              </button>
+            )}
           </div>
         </div>
 
-        {showFilters && (
-          <div id="officer-filters" className="flex flex-wrap items-center gap-3 px-6 pb-4">
-            <label className="flex items-center gap-2 text-sm text-zinc-600">
-              Status
-              <select
-                value={filters.status}
-                onChange={(event) => setFilters({ ...filters, status: event.target.value as Filters['status'] })}
-                className={`px-4 ${fieldClass}`}
-              >
-                <option value="">All statuses</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </label>
-            <label className="flex items-center gap-2 text-sm text-zinc-600">
-              Organization
-              <select
-                value={filters.organizationId}
-                onChange={(event) => setFilters({ ...filters, organizationId: event.target.value })}
-                className={`max-w-64 px-4 ${fieldClass}`}
-              >
-                <option value="">All organizations</option>
-                {organizations.map(([id, name]) => (
-                  <option key={id} value={id}>
-                    {name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {filterCount > 0 && (
-              <button
-                type="button"
-                onClick={() => setFilters(NO_FILTERS)}
-                className="flex items-center gap-1.5 rounded-full px-3 py-2 text-sm text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900"
-              >
-                <X size={14} aria-hidden="true" />
-                Clear
-              </button>
-            )}
+        {sample && (
+          <div className="px-6 pb-4">
+            <SampleDataNotice table="officers" />
           </div>
         )}
 
@@ -176,22 +187,22 @@ export default function AdminOfficersPage() {
           <table className="w-full min-w-[760px] text-left text-sm">
             <thead className="border-y border-zinc-200 bg-surface text-xs tracking-wide text-zinc-500 uppercase">
               <tr>
-                <th scope="col" className="px-6 py-3 font-medium">
+                <th scope="col" className="px-6 py-3 text-center font-medium">
                   Admin No.
                 </th>
-                <th scope="col" className="px-6 py-3 font-medium">
+                <th scope="col" className="px-6 py-3 text-center font-medium">
                   Admin Name
                 </th>
-                <th scope="col" className="px-6 py-3 font-medium">
+                <th scope="col" className="px-6 py-3 text-center font-medium">
                   Organization
                 </th>
-                <th scope="col" className="px-6 py-3 font-medium">
+                <th scope="col" className="px-6 py-3 text-center font-medium">
                   Position
                 </th>
-                <th scope="col" className="px-6 py-3 font-medium">
+                <th scope="col" className="px-6 py-3 text-center font-medium">
                   Status
                 </th>
-                <th scope="col" className="px-6 py-3 text-right font-medium">
+                <th scope="col" className="px-6 py-3 text-center font-medium">
                   Action
                 </th>
               </tr>
@@ -199,32 +210,30 @@ export default function AdminOfficersPage() {
             <tbody className="divide-y divide-zinc-100">
               {shown.map((officer) => (
                 <tr key={officer.id} className="transition hover:bg-surface/60">
-                  <td className="px-6 py-4 font-medium text-zinc-700 tabular-nums">{officer.admin_no}</td>
+                  <td className="px-6 py-4 text-center font-medium text-zinc-700 tabular-nums">{officer.admin_no}</td>
                   <td className="px-6 py-4">
                     <p className="font-medium text-brand-navy">{officer.name}</p>
                     {officer.email && <p className="text-xs text-zinc-500">{officer.email}</p>}
                   </td>
-                  <td className="px-6 py-4 text-zinc-700">{officer.organization_name}</td>
-                  <td className="px-6 py-4 text-zinc-700">{officer.position}</td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 text-center text-zinc-700">{officer.organization_name}</td>
+                  <td className="px-6 py-4 text-center text-zinc-700">{officer.position}</td>
+                  <td className="px-6 py-4 text-center">
                     <StatusBadge status={officer.status} />
                   </td>
                   <td className="px-6 py-4">
-                    <div className="flex justify-end">
-                      {officer.status === 'active' ? (
-                        <IconButton
-                          icon={CirclePause}
-                          label={`Deactivate ${officer.name}`}
-                          danger
-                          onClick={() => setToggling(officer)}
-                        />
-                      ) : (
-                        <IconButton
-                          icon={CirclePlay}
-                          label={`Reactivate ${officer.name}`}
-                          onClick={() => setToggling(officer)}
-                        />
-                      )}
+                    <div className="flex items-center justify-center gap-2">
+                      <StatusSwitch
+                        on={officer.status === 'active'}
+                        label={`${officer.status === 'active' ? 'Deactivate' : 'Reactivate'} ${officer.name}`}
+                        onToggle={() => setToggling(officer)}
+                      />
+                      <IconButton
+                        icon={Trash2}
+                        label={`Move ${officer.name} to Trash`}
+                        danger
+                        colored
+                        onClick={() => setRemoving(officer)}
+                      />
                     </div>
                   </td>
                 </tr>
@@ -239,7 +248,7 @@ export default function AdminOfficersPage() {
                   officers !== null && shown.length === 0
                     ? narrowed
                       ? 'No admin officers match your search or filters.'
-                      : 'No admin officers yet. Use Assign president to make a student the president of an organization.'
+                      : 'No admin officers yet. Use Add admin to add an organization’s president or adviser.'
                     : null
                 }
               />
@@ -248,11 +257,25 @@ export default function AdminOfficersPage() {
         </div>
       </section>
 
-      {assigning && (
-        <AssignPresidentModal
+      {adding && (
+        <AddAdminModal
           officers={officers ?? []}
-          onClose={() => setAssigning(false)}
-          onAssigned={() => setReloadKey((key) => key + 1)}
+          onClose={() => setAdding(false)}
+          onAdded={() => setReloadKey((key) => key + 1)}
+        />
+      )}
+
+      {removing && (
+        <ConfirmDialog
+          title="Move to Trash?"
+          message={`${removing.name} (${removing.admin_no}) will be marked Inactive as ${removing.position} of ${removing.organization_name} and lose officer access unless they hold another active position. You can restore them from Trash.`}
+          confirmLabel="Move to Trash"
+          danger
+          onClose={() => setRemoving(null)}
+          onConfirm={async () => {
+            await archiveOfficer(removing.id)
+            setOfficers((current) => current?.filter((officer) => officer.id !== removing.id) ?? null)
+          }}
         />
       )}
 
@@ -261,7 +284,7 @@ export default function AdminOfficersPage() {
           {...(toggling.status === 'active'
             ? {
                 title: 'Deactivate officer?',
-                message: `${toggling.name} (${toggling.admin_no}) will be marked Inactive for ${toggling.organization_name} and lose officer access unless they lead another organization. You can reactivate them while the organization has no other active president.`,
+                message: `${toggling.name} (${toggling.admin_no}) will be marked Inactive as ${toggling.position} of ${toggling.organization_name} and lose officer access unless they hold another active position. You can reactivate them while no one else is the organization’s active ${toggling.position.toLowerCase()}.`,
                 confirmLabel: 'Deactivate',
                 danger: true,
               }
@@ -287,13 +310,11 @@ export default function AdminOfficersPage() {
 
 function StatusBadge({ status }: { status: OfficerStatus }) {
   return status === 'active' ? (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700 ring-1 ring-green-600/20">
-      <span className="size-1.5 rounded-full bg-green-600" aria-hidden="true" />
+    <span className="inline-flex items-center rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700 ring-1 ring-green-600/20">
       Active
     </span>
   ) : (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-600 ring-1 ring-zinc-500/20">
-      <span className="size-1.5 rounded-full bg-zinc-400" aria-hidden="true" />
+    <span className="inline-flex items-center rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-600 ring-1 ring-zinc-500/20">
       Inactive
     </span>
   )

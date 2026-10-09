@@ -6,10 +6,15 @@ export type Testimonial = { author: string; text: string }
 
 export type Organization = {
   id: string
+  // The year it was added and its number within that year, e.g. "2026-001". Set by the database.
+  org_code: string
   name: string
   categories: string[]
+  // A college from DEPARTMENT_OPTIONS, or "University Wide".
+  department: string
   description: string | null
-  mission_vision: string | null
+  vision: string | null
+  mission: string | null
   room_number: string | null
   telegram_contact: string | null
   facebook_contact: string | null
@@ -32,8 +37,10 @@ export type Organization = {
 export type OrganizationInput = {
   name: string
   categories: string[]
+  department: string
   description: string
-  mission_vision: string
+  vision: string
+  mission: string
   room_number: string
   telegram_contact: string
   facebook_contact: string
@@ -52,10 +59,8 @@ export type OrganizationFiles = {
 export const PRESET_CATEGORIES = ['Academic', 'Cultural', 'Sports', 'Religious', 'Special Interest']
 export const MAX_CATEGORIES = 3
 
-export const ALL_PROGRAMS = 'All Programs'
-// Edit this list to match the programs NEU actually offers.
-export const PROGRAM_OPTIONS = [
-  ALL_PROGRAMS,
+// Edit this list to match the colleges NEU actually has.
+export const COLLEGES = [
   'College of Accountancy',
   'College of Arts and Sciences',
   'College of Business Administration',
@@ -70,6 +75,13 @@ export const PROGRAM_OPTIONS = [
   'College of Physical Therapy',
   'College of Respiratory Therapy',
 ]
+
+export const ALL_PROGRAMS = 'All Programs'
+export const PROGRAM_OPTIONS = [ALL_PROGRAMS, ...COLLEGES]
+
+// For orgs open to students of every course, whatever their college.
+export const UNIVERSITY_WIDE = 'University Wide'
+export const DEPARTMENT_OPTIONS = [UNIVERSITY_WIDE, ...COLLEGES]
 
 const MEDIA_BUCKET = 'org-media'
 export const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp']
@@ -89,6 +101,8 @@ export function mediaUrl(path: string | null): string | null {
 // ---------------------------------------------------------------------------
 
 let sampleStore: Organization[] | null = null
+// Numbers the sample orgs' IDs, like the database does for real ones.
+let sampleCount = 0
 
 export function usingSampleData() {
   return sampleStore !== null
@@ -107,12 +121,16 @@ function sampleOrganization(
   extra: Partial<Organization> = {},
 ): Organization {
   const now = new Date().toISOString()
+  sampleCount += 1
   return {
     id: crypto.randomUUID(),
+    org_code: `${now.slice(0, 4)}-${String(sampleCount).padStart(3, '0')}`,
     name,
     categories,
+    department: UNIVERSITY_WIDE,
     description: null,
-    mission_vision: null,
+    vision: null,
+    mission: null,
     room_number: null,
     telegram_contact: null,
     facebook_contact: null,
@@ -134,8 +152,10 @@ function sampleOrganization(
 function createSampleStore(): Organization[] {
   return [
     sampleOrganization('Computer Studies Society', ['Academic', 'Special Interest'], 128, 6, {
+      department: 'College of Computer Studies',
       description: 'A community for students who love building software, hardware and ideas.',
-      mission_vision: 'To grow skilled, ethical and collaborative computing professionals.',
+      vision: 'A campus where every student can build technology that helps people.',
+      mission: 'To grow skilled, ethical and collaborative computing professionals.',
       room_number: 'Room 402, CCS Building',
       telegram_contact: '@css_neu',
       facebook_contact: 'CSS NEU Main',
@@ -143,10 +163,16 @@ function createSampleStore(): Organization[] {
       reasons_to_join: ['Hands-on workshops every month', 'Hackathons and coding contests'],
       testimonials: [{ author: 'Sample Alumnus', text: 'CSS taught me teamwork outside the classroom.' }],
     }),
-    sampleOrganization('Junior Philippine Institute of Accountants', ['Academic'], 214, 9),
+    sampleOrganization('Junior Philippine Institute of Accountants', ['Academic'], 214, 9, {
+      department: 'College of Accountancy',
+    }),
     sampleOrganization('NEU Debate Society', ['Academic', 'Special Interest'], 42, 3),
-    sampleOrganization('Nursing Students Association', ['Academic'], 176, 5),
-    sampleOrganization('Engineering Council', ['Academic'], 158, 7),
+    sampleOrganization('Nursing Students Association', ['Academic'], 176, 5, {
+      department: 'College of Nursing',
+    }),
+    sampleOrganization('Engineering Council', ['Academic'], 158, 7, {
+      department: 'College of Engineering and Architecture',
+    }),
     sampleOrganization('NEU Music Club', ['Cultural', 'Special Interest'], 64, 4),
   ]
 }
@@ -337,8 +363,10 @@ function clean(input: OrganizationInput) {
   return {
     name: input.name.trim(),
     categories: input.categories.map((category) => category.trim()).filter(Boolean),
+    department: input.department,
     description: optional(input.description),
-    mission_vision: optional(input.mission_vision),
+    vision: optional(input.vision),
+    mission: optional(input.mission),
     room_number: optional(input.room_number),
     telegram_contact: optional(input.telegram_contact),
     facebook_contact: optional(input.facebook_contact),

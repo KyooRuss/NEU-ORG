@@ -4,7 +4,7 @@ import EventFilters from '../components/EventFilters'
 import EventReviewModal from '../components/EventReviewModal'
 import EventTable, { SampleEventsNotice } from '../components/EventTable'
 import { type EventFilterValues, filterEvents, hasFilters, NO_FILTERS } from '../lib/eventFilters'
-import { type EventTiming, fetchApprovedEvents, formatDay, type OrgEvent, usingSampleEvents } from '../lib/events'
+import { type EventTiming, fetchApprovedEvents, type OrgEvent, usingSampleEvents } from '../lib/events'
 
 const PAGES: Record<EventTiming, { title: string; description: string; empty: string }> = {
   upcoming: {
@@ -54,11 +54,18 @@ export default function ApprovedEventsPage({ timing }: { timing: EventTiming }) 
       <div className="flex flex-wrap items-center justify-between gap-4 p-6">
         <div>
           <h1 className="font-semibold text-brand-navy">{title}</h1>
+          {/* Upcoming shows a short description; Past shows the count instead. */}
           <p className="mt-1 text-sm text-zinc-500">
-            {description} {filtering ? 'Showing' : 'Total'}:{' '}
-            <span className="font-semibold text-brand-navy">
-              {shown ? (filtering ? `${shown.length} of ${events!.length}` : shown.length) : '—'}
-            </span>
+            {timing === 'upcoming' ? (
+              description
+            ) : (
+              <>
+                Total Approved Events:{' '}
+                <span className="font-semibold text-brand-navy">
+                  {shown ? (filtering ? `${shown.length} of ${events!.length}` : shown.length) : '—'}
+                </span>
+              </>
+            )}
           </p>
         </div>
         <EventFilters events={events} filters={filters} onChange={setFilters} />
@@ -74,10 +81,6 @@ export default function ApprovedEventsPage({ timing }: { timing: EventTiming }) 
         events={shown}
         error={loadError}
         empty={filtering ? 'No events match your search or filters.' : empty}
-        dateColumn={{
-          label: 'Approved',
-          value: (event) => (event.approved_at ? formatDay(event.approved_at) : '—'),
-        }}
         onOpen={setViewing}
         onRetry={() => setReloadKey((key) => key + 1)}
       />

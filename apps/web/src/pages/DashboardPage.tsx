@@ -24,11 +24,13 @@ import { countPendingEvents, countUpcomingEvents } from '../lib/events'
 import { fetchOrganizations } from '../lib/organizations'
 import type { Profile } from '../lib/profile'
 import { supabase } from '../lib/supabase'
+import AddOrganizationPage from './AddOrganizationPage'
 import AdminOfficersPage from './AdminOfficersPage'
 import ApprovedEventsPage from './ApprovedEventsPage'
 import EventRequestsPage from './EventRequestsPage'
+import ProfessorsPage from './ProfessorsPage'
 import StudentsPage from './StudentsPage'
-import TrashPage from './TrashPage'
+import TrashPage, { type TrashKind } from './TrashPage'
 
 // An item with children opens a submenu; each child is its own page.
 type NavItem = { label: string; icon: LucideIcon; children?: string[] }
@@ -36,7 +38,18 @@ type StatCard = { key: string; label: string; hint: string; icon: LucideIcon }
 type Stats = Record<string, number | null>
 
 const EVENT_PAGES = ['Event Requests', 'Upcoming Events', 'Past Events']
-const USER_PAGES = ['Admin Officers', 'Students']
+const USER_PAGES = ['Admin Officers', 'Students', 'Professors']
+
+// Trash has a page per kind. Their keys differ from the Users pages; the menu shows the kind only.
+const TRASH_KINDS: Record<string, TrashKind> = {
+  'Trash Organizations': 'Organizations',
+  'Trash Admin Officers': 'Admin Officers',
+  'Trash Students': 'Students',
+  'Trash Professors': 'Professors',
+}
+const TRASH_PAGES = Object.keys(TRASH_KINDS)
+// The name shown for a page in the menu and tabs.
+const pageLabel = (page: string) => TRASH_KINDS[page] ?? page
 
 // Sample menus for now; each item becomes a real page in later steps.
 const adminNav: NavItem[] = [
@@ -44,12 +57,14 @@ const adminNav: NavItem[] = [
   { label: 'Organizations', icon: Building2 },
   { label: 'Events', icon: CalendarDays, children: EVENT_PAGES },
   { label: 'Users', icon: Users, children: USER_PAGES },
-  { label: 'Memorandums', icon: Megaphone },
-  { label: 'Trash', icon: Trash2 },
+  { label: 'Trash', icon: Trash2, children: TRASH_PAGES },
 ]
 
+// Opened from a button on the Organizations page, not from the sidebar.
+const ADD_ORGANIZATION = 'Add Organization'
+
 // The admin pages that exist so far (besides Dashboard).
-const adminPages = ['Organizations', 'Trash', ...USER_PAGES, ...EVENT_PAGES]
+const adminPages = ['Organizations', ADD_ORGANIZATION, ...TRASH_PAGES, ...USER_PAGES, ...EVENT_PAGES]
 
 // Below Tailwind's "md" breakpoint the sidebar becomes a row, so submenus don't fit.
 const isPhone = () => window.matchMedia('(max-width: 767px)').matches
@@ -87,6 +102,7 @@ async function fetchAdminStats(): Promise<Stats> {
       .from('profiles')
       .select('id', { count: 'exact', head: true })
       .eq('role', 'student')
+      .is('archived_at', null)
       .then(({ count, error }) => (error ? null : count)),
     countPendingEvents().catch(() => null),
     countUpcomingEvents().catch(() => null),
@@ -106,11 +122,14 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
   const collapsed = !pinned && !hovered
   // Which sidebar page is open. Only Dashboard and (for admins) the pages in adminPages exist so far.
   const [page, setPage] = useState('Dashboard')
+  // The sidebar item to highlight. Pages outside the sidebar highlight the item they belong to.
+  const navPage = page === ADD_ORGANIZATION ? 'Organizations' : page
   // Which submenu is open, by its parent's label.
   const [openGroup, setOpenGroup] = useState<string | null>(null)
   const openPage = (label: string) => {
     if (label === 'Dashboard' || (isAdmin && adminPages.includes(label))) {
       setPage(label)
+      window.scrollTo(0, 0)
       // Keep the submenu of the page's group open, so the admin sees where they are.
       setOpenGroup(nav.find((item) => item.children?.includes(label))?.label ?? null)
     }
@@ -182,7 +201,10 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
               title={pinned ? 'Close menu' : 'Keep menu open'}
               aria-expanded={!collapsed}
               aria-controls="dashboard-nav"
-              className="flex size-10 shrink-0 items-center justify-center rounded-lg text-white/90 transition hover:bg-white/10 hover:text-white"
+              // Hidden while the menu is only open because the mouse is over it; it comes back on leave.
+              className={`flex size-10 shrink-0 items-center justify-center rounded-lg text-white/90 transition hover:bg-white/10 hover:text-white ${
+                hovered && !pinned ? 'md:hidden' : ''
+              }`}
             >
               <Menu size={22} aria-hidden="true" />
             </button>
@@ -213,7 +235,7 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
                     type="button"
                     onClick={() => openPage(label)}
                     title={collapsed ? label : undefined}
-                    aria-current={label === page ? 'page' : undefined}
+                    aria-current={label === navPage ? 'page' : undefined}
                     className={`flex shrink-0 items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-white/80 transition hover:bg-white/10 hover:text-white aria-[current=page]:bg-white/15 aria-[current=page]:font-semibold aria-[current=page]:text-white ${
                       collapsed ? 'md:justify-center' : ''
                     }`}
@@ -225,7 +247,7 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
               }
 
               const open = !collapsed && openGroup === label
-              const holdsPage = children.includes(page)
+              const holdsPage = children.includes(navPage)
               return (
                 <div key={label} className="flex shrink-0 flex-col gap-1">
                   <button
@@ -263,10 +285,10 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
                           key={child}
                           type="button"
                           onClick={() => openPage(child)}
-                          aria-current={child === page ? 'page' : undefined}
+                          aria-current={child === navPage ? 'page' : undefined}
                           className="flex items-center gap-3 rounded-lg py-2 pr-3 pl-10.5 text-left text-sm whitespace-nowrap text-white/75 transition hover:bg-white/10 hover:text-white aria-[current=page]:bg-white/15 aria-[current=page]:font-semibold aria-[current=page]:text-white"
                         >
-                          {child}
+                          {pageLabel(child)}
                           {child === 'Event Requests' && <CountBadge count={badge} />}
                         </button>
                       ))}
@@ -292,19 +314,43 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
       </aside>
 
       <main className="min-w-0 flex-1 px-4 py-6 sm:px-8 lg:px-12">
-        {/* Phones have no sidebar log-out button, so it lives here. */}
-        <button
-          type="button"
-          onClick={() => void supabase.auth.signOut()}
-          className="mb-4 flex items-center gap-2 rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm text-zinc-700 transition hover:bg-zinc-50 md:hidden"
+        {/* Shown above every page except Add Organization, which only keeps the phone log-out button. */}
+        <header
+          className={`mb-6 flex items-center justify-end gap-3 ${page === ADD_ORGANIZATION ? 'md:hidden' : ''}`}
         >
-          <LogOut size={16} aria-hidden="true" />
-          Log out
-        </button>
+          {/* Phones have no sidebar log-out button, so it lives here. */}
+          <button
+            type="button"
+            onClick={() => void supabase.auth.signOut()}
+            className="mr-auto flex items-center gap-2 rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm text-zinc-700 transition hover:bg-zinc-50 md:hidden"
+          >
+            <LogOut size={16} aria-hidden="true" />
+            Log out
+          </button>
+          {page !== ADD_ORGANIZATION && (
+            <>
+              {/* Notifications arrive in a later step. */}
+              <button
+                type="button"
+                aria-label="Notifications"
+                title="Notifications"
+                className="flex size-10 items-center justify-center rounded-full text-brand-navy transition hover:bg-zinc-200/70"
+              >
+                <Bell size={22} aria-hidden="true" />
+              </button>
+              <span
+                title={`${name} (${profile.role})`}
+                className="flex size-10 items-center justify-center rounded-full bg-brand-navy text-sm font-semibold text-white uppercase"
+              >
+                {name.charAt(0)}
+              </span>
+            </>
+          )}
+        </header>
 
         {EVENT_PAGES.includes(page) ? (
           <>
-            <EventPageTabs page={page} pendingCount={pendingEvents} onOpen={openPage} />
+            <PageTabs label="Event pages" pages={EVENT_PAGES} page={page} pendingCount={pendingEvents} onOpen={openPage} />
             {page === 'Event Requests' ? (
               <EventRequestsPage
                 pendingCount={pendingEvents}
@@ -316,36 +362,27 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
           </>
         ) : page === 'Admin Officers' ? (
           <AdminOfficersPage />
+        ) : page === 'Professors' ? (
+          <ProfessorsPage />
         ) : page === 'Students' ? (
           <StudentsPage />
-        ) : page === 'Trash' ? (
-          <TrashPage />
+        ) : TRASH_PAGES.includes(page) ? (
+          <>
+            <PageTabs label="Trash pages" pages={TRASH_PAGES} page={page} onOpen={openPage} />
+            <TrashPage key={page} kind={TRASH_KINDS[page]} />
+          </>
         ) : page === 'Organizations' ? (
-          <OrganizationsOverview />
+          <OrganizationsOverview onAdd={() => openPage(ADD_ORGANIZATION)} />
+        ) : page === ADD_ORGANIZATION ? (
+          <AddOrganizationPage
+            onCancel={() => openPage('Organizations')}
+            onSaved={() => openPage('Organizations')}
+          />
         ) : (
           <>
-            <section className="flex items-center justify-between gap-4 rounded-2xl bg-linear-to-r from-brand-navy to-[#2f45c8] px-6 py-8 text-white shadow-lg sm:px-12">
-              <div className="min-w-0">
-                <p className="text-sm text-white/90">Welcome back,</p>
-                <h1 className="mt-1 truncate text-2xl font-bold">{name}!</h1>
-              </div>
-              <div className="flex shrink-0 items-center gap-4">
-                {/* Notifications arrive in a later step. */}
-                <button
-                  type="button"
-                  aria-label="Notifications"
-                  title="Notifications"
-                  className="flex size-10 items-center justify-center rounded-full text-white transition hover:bg-white/15"
-                >
-                  <Bell size={24} aria-hidden="true" />
-                </button>
-                <span
-                  title={`${name} (${profile.role})`}
-                  className="flex size-11 items-center justify-center rounded-full bg-white text-sm font-semibold text-brand-navy uppercase"
-                >
-                  {name.charAt(0)}
-                </span>
-              </div>
+            <section className="rounded-2xl bg-linear-to-r from-brand-navy to-[#2f45c8] px-6 py-8 text-white shadow-lg sm:px-12">
+              <p className="text-sm text-white/90">Welcome back,</p>
+              <h1 className="mt-1 truncate text-2xl font-bold">{name}!</h1>
             </section>
 
             <section className="mt-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
@@ -403,19 +440,23 @@ function CountBadge({ count, className = '' }: { count: number | null; className
   )
 }
 
-// On phones the sidebar has no submenu, so the event pages switch with these tabs.
-function EventPageTabs({
+// On phones the sidebar has no submenu, so a group's pages (Events, Trash) switch with these tabs.
+function PageTabs({
+  label: navLabel,
+  pages,
   page,
-  pendingCount,
+  pendingCount = null,
   onOpen,
 }: {
+  label: string
+  pages: string[]
   page: string
-  pendingCount: number | null
+  pendingCount?: number | null
   onOpen: (label: string) => void
 }) {
   return (
-    <nav aria-label="Event pages" className="mb-4 flex gap-1 overflow-x-auto rounded-xl bg-white p-1 shadow-sm ring-1 ring-zinc-200 md:hidden">
-      {EVENT_PAGES.map((label) => (
+    <nav aria-label={navLabel} className="mb-4 flex gap-1 overflow-x-auto rounded-xl bg-white p-1 shadow-sm ring-1 ring-zinc-200 md:hidden">
+      {pages.map((label) => (
         <button
           key={label}
           type="button"
@@ -423,7 +464,7 @@ function EventPageTabs({
           aria-current={label === page ? 'page' : undefined}
           className="flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm whitespace-nowrap text-zinc-600 transition hover:bg-zinc-100 aria-[current=page]:bg-brand-navy aria-[current=page]:font-semibold aria-[current=page]:text-white"
         >
-          {label}
+          {pageLabel(label)}
           {label === 'Event Requests' && !!pendingCount && (
             <span className="rounded-full bg-brand-blue/15 px-1.5 text-xs font-semibold">{pendingCount}</span>
           )}

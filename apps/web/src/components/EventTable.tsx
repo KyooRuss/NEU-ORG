@@ -1,40 +1,46 @@
 import { Eye, ImageOff } from 'lucide-react'
 
-import { formatEventDate, isResubmitted, type OrgEvent, posterUrl } from '../lib/events'
+import { formatEventDay, formatEventTime, isResubmitted, type OrgEvent, posterUrl } from '../lib/events'
 import IconButton from './IconButton'
 
-// The list used by every event page. The second date column changes per page
-// (Submitted, Last updated, Approved...), so the page passes it in.
+// The list used by every event page.
 export default function EventTable({
   events,
   error,
   empty,
-  dateColumn,
   onOpen,
   onRetry,
 }: {
   events: OrgEvent[] | null
   error: string | null
   empty: string
-  dateColumn: { label: string; value: (event: OrgEvent) => string }
   onOpen: (event: OrgEvent) => void
   onRetry: () => void
 }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[640px] text-left text-sm">
+      <table className="w-full min-w-[1000px] text-left text-sm">
         <thead className="border-y border-zinc-200 bg-surface text-xs tracking-wide text-zinc-500 uppercase">
           <tr>
             <th scope="col" className="px-6 py-3 font-medium">
-              Event
+              Organization
             </th>
             <th scope="col" className="px-6 py-3 font-medium">
-              Event Date
+              Department
             </th>
             <th scope="col" className="px-6 py-3 font-medium">
-              {dateColumn.label}
+              Event Title
             </th>
-            <th scope="col" className="px-6 py-3 text-right font-medium">
+            <th scope="col" className="px-6 py-3 font-medium">
+              Date
+            </th>
+            <th scope="col" className="px-6 py-3 font-medium">
+              Time
+            </th>
+            <th scope="col" className="px-6 py-3 font-medium">
+              Venue
+            </th>
+            <th scope="col" className="px-6 py-3 text-center font-medium">
               Action
             </th>
           </tr>
@@ -42,13 +48,16 @@ export default function EventTable({
         <tbody className="divide-y divide-zinc-100">
           {events?.map((event) => (
             <tr key={event.id} className="transition hover:bg-surface/60">
+              <td className="px-6 py-4 font-medium text-brand-navy">{event.organization_name}</td>
+              <td className="px-6 py-4 text-zinc-700">{event.organization_department}</td>
               <td className="px-6 py-4">
                 <EventNameCell event={event} />
               </td>
-              <td className="px-6 py-4 text-zinc-700">{formatEventDate(event)}</td>
-              <td className="px-6 py-4 text-zinc-700">{dateColumn.value(event)}</td>
+              <td className="px-6 py-4 whitespace-nowrap text-zinc-700">{formatEventDay(event)}</td>
+              <td className="px-6 py-4 whitespace-nowrap text-zinc-700">{formatEventTime(event)}</td>
+              <td className="px-6 py-4 text-zinc-700">{event.venue}</td>
               <td className="px-6 py-4">
-                <div className="flex justify-end">
+                <div className="flex justify-center">
                   <IconButton icon={Eye} label={`Open ${event.title}`} onClick={() => onOpen(event)} />
                 </div>
               </td>
@@ -56,7 +65,7 @@ export default function EventTable({
           ))}
           {(events === null || error || events.length === 0) && (
             <tr>
-              <td colSpan={4} className="px-6 py-10 text-center text-sm text-zinc-500">
+              <td colSpan={7}className="px-6 py-10 text-center text-sm text-zinc-500">
                 {error ? (
                   <span className="text-red-700">
                     Could not load events: {error}{' '}
@@ -78,6 +87,7 @@ export default function EventTable({
   )
 }
 
+// The poster thumbnail and title. The organization has its own column now.
 function EventNameCell({ event }: { event: OrgEvent }) {
   const poster = posterUrl(event.poster_path)
   return (
@@ -89,13 +99,10 @@ function EventNameCell({ event }: { event: OrgEvent }) {
           <ImageOff size={16} aria-hidden="true" />
         )}
       </span>
-      <div className="min-w-0">
-        <p className="flex flex-wrap items-center gap-2 font-medium text-brand-navy">
-          {event.title}
-          {isResubmitted(event) && <ResubmittedTag />}
-        </p>
-        <p className="text-xs text-zinc-500">{event.organization_name}</p>
-      </div>
+      <p className="flex min-w-0 flex-wrap items-center gap-2 font-medium text-brand-navy">
+        {event.title}
+        {isResubmitted(event) && <ResubmittedTag />}
+      </p>
     </div>
   )
 }

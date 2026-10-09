@@ -13,6 +13,8 @@ export type Officer = {
   organization_name: string
   position: string
   status: OfficerStatus
+  // When the officer was moved to Trash, or null.
+  archived_at: string | null
   created_at: string
 }
 
@@ -54,6 +56,7 @@ function createSampleStore(): Officer[] {
     organization_name,
     position,
     status,
+    archived_at: null,
     created_at: new Date().toISOString(),
   })
 
@@ -79,7 +82,7 @@ function findSample(id: string): Officer {
 
 // Includes the officer's name and email, and the organization's name.
 const OFFICER_COLUMNS =
-  'id, admin_no, profile_id, organization_id, position, status, created_at, profile:profiles(full_name, email), organization:organizations(name)'
+  'id, admin_no, profile_id, organization_id, position, status, archived_at, created_at, profile:profiles(full_name, email), organization:organizations(name)'
 
 type OfficerRow = Omit<Officer, 'name' | 'email' | 'organization_name'> & {
   profile: { full_name: string | null; email: string } | null
@@ -95,11 +98,13 @@ function fromRow({ profile, organization, ...row }: OfficerRow): Officer {
   }
 }
 
-export async function fetchOfficers(): Promise<Officer[]> {
+// The officers in Trash when archived is true, the others otherwise.
+export async function fetchOfficers(archived = false): Promise<Officer[]> {
   if (!sampleStore) {
     const { data, error } = await supabase
       .from('officers')
       .select(OFFICER_COLUMNS)
+      .filter('archived_at', archived ? 'not.is' : 'is', null)
       .order('admin_no')
 
     if (!error) return (data as unknown as OfficerRow[]).map(fromRow)
@@ -107,7 +112,9 @@ export async function fetchOfficers(): Promise<Officer[]> {
     sampleStore = createSampleStore()
   }
 
-  return [...sampleStore].sort((a, b) => a.admin_no.localeCompare(b.admin_no))
+  return sampleStore
+    .filter((officer) => (officer.archived_at !== null) === archived)
+    .sort((a, b) => a.admin_no.localeCompare(b.admin_no))
 }
 
 // Goes through the set_officer_status database function, which also updates the
@@ -122,39 +129,88 @@ export async function setOfficerStatus(id: string, status: OfficerStatus) {
   if (error) throw new Error(error.message)
 }
 
-// Makes the student the active president of the organization. The current
-// president, if any, becomes inactive and loses officer access.
-export async function assignPresident(profileId: string, organizationId: string) {
-  if (sampleStore) throw new Error('Run the database migrations first. Presidents can’t be assigned on sample data.')
+// Moves the officer to Trash, through the archive_officer database function. They also
+// become inactive, losing officer access unless they hold another active position.
+export async function archiveOfficer(id: string) {
+  if (sampleStore) {
+    Object.assign(findSample(id), { archived_at: new Date().toISOString(), status: 'inactive' })
+    return
+  }
 
-  const { error } = await supabase.rpc('assign_president', { target_profile: profileId, target_org: organizationId })
+  const { error } = await supabase.rpc('archive_officer', { target_officer: id })
+  if (error) throw new Error(error.message)
+}
+
+// Takes the officer out of Trash. They stay inactive until reactivated on Admin Officers.
+export async function restoreOfficer(id: string) {
+  if (sampleStore) {
+    findSample(id).archived_at = null
+    return
+  }
+
+  const { data, error } = await supabase.from('officers').update({ archived_at: null }).eq('id', id).select('id')
+  if (error) throw new Error(error.message)
+  if (data.length === 0) throw notFound()
+}
+
+// Deletes the officer entry for good. Goes through the remove_officer database
+// function, which also takes away officer access unless they hold another active position.
+export async function removeOfficer(id: string) {
+  if (sampleStore) {
+    findSample(id)
+    sampleStore = sampleStore.filter((officer) => officer.id !== id)
+    return
+  }
+
+  const { error } = await supabase.rpc('remove_officer', { target_officer: id })
+  if (error) throw new Error(error.message)
+}
+
+// The positions an officer can hold. Each organization has at most one active person in each.
+export const OFFICER_POSITIONS = ['President', 'Adviser'] as const
+export type OfficerPosition = (typeof OFFICER_POSITIONS)[number]
+
+// Makes the account the active holder of the position in the organization. Whoever
+// held that position there, if anyone, becomes inactive and may lose officer access.
+export async function assignOfficer(profileId: string, organizationId: string, position: OfficerPosition) {
+  if (sampleStore) throw new Error('Run the database migrations first. Officers can’t be added on sample data.')
+
+  const { error } = await supabase.rpc('assign_officer', {
+    target_profile: profileId,
+    target_org: organizationId,
+    target_position: position,
+  })
   if (error) throw new Error(error.message)
 }
 
 // ---------------------------------------------------------------------------
-// Picking a student to make president.
+// Picking the account to add as an officer.
 // ---------------------------------------------------------------------------
 
-export type PresidentCandidate = {
+export type OfficerCandidate = {
   id: string
   name: string
   email: string
   student_no: string | null
+  // Set for professors, who are usually the ones made Adviser.
+  professor_no: string | null
 }
 
-// Active student and officer accounts whose name, email or student number contains
-// the query. Officers are included because one person can lead more than one organization.
-export async function searchPresidentCandidates(query: string): Promise<PresidentCandidate[]> {
+// Active student and officer accounts whose name, email, student number or professor number
+// contains the query. Professors have the student role; officers can hold a position in more
+// than one organization.
+export async function searchOfficerCandidates(query: string): Promise<OfficerCandidate[]> {
   // Commas and brackets would break the "or" filter below; % and * are wildcards.
   const text = query.replace(/[,()%*\\]/g, ' ').trim()
   if (!text) return []
 
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, full_name, email, student_no')
+    .select('id, full_name, email, student_no, professor_no')
     .in('role', ['student', 'officer'])
     .eq('status', 'active')
-    .or(`full_name.ilike.%${text}%,email.ilike.%${text}%,student_no.ilike.%${text}%`)
+    .is('archived_at', null)
+    .or(`full_name.ilike.%${text}%,email.ilike.%${text}%,student_no.ilike.%${text}%,professor_no.ilike.%${text}%`)
     .order('full_name')
     .limit(10)
 

@@ -1,32 +1,23 @@
 import { Check, ImagePlus, Plus, X } from 'lucide-react'
-import { type FormEvent, type ReactNode, useEffect, useState } from 'react'
+import { type FormEvent, type ReactNode, useState } from 'react'
 
 import {
-  createOrganization,
+  DEPARTMENT_OPTIONS,
   IMAGE_TYPES,
-  LOGO_MAX_BYTES,
   MAX_CATEGORIES,
   MAX_PHOTOS,
-  mediaUrl,
   type Organization,
-  type OrganizationInput,
-  PHOTO_MAX_BYTES,
   PRESET_CATEGORIES,
-  PROGRAM_OPTIONS,
-  type Testimonial,
-  updateOrganization,
 } from '../lib/organizations'
 import Modal, { primaryButton, secondaryButton } from './Modal'
+import useOrganizationForm from './useOrganizationForm'
 
+// Adding an organization has its own page (AddOrganizationPage); this edits one.
 type Props = {
-  // Leave out to add a new organization; pass one to edit it.
-  organization?: Organization
+  organization: Organization
   onClose: () => void
   onSaved: () => void
 }
-
-// A photo already saved (path) or a new one picked in this form (file).
-type PhotoItem = { key: string; url: string; path?: string; file?: File }
 
 const fieldClass =
   'mt-1 w-full rounded-lg bg-field px-3 py-2 text-sm text-zinc-800 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-brand-blue/40'
@@ -36,157 +27,26 @@ const removeButton =
   'flex size-8 shrink-0 items-center justify-center rounded-lg text-zinc-400 transition hover:bg-red-50 hover:text-red-600'
 
 export default function OrganizationFormModal({ organization: org, onClose, onSaved }: Props) {
-  const isEdit = org !== undefined
-  const [values, setValues] = useState<OrganizationInput>({
-    name: org?.name ?? '',
-    categories: org?.categories ?? [],
-    description: org?.description ?? '',
-    mission_vision: org?.mission_vision ?? '',
-    room_number: org?.room_number ?? '',
-    telegram_contact: org?.telegram_contact ?? '',
-    facebook_contact: org?.facebook_contact ?? '',
-    program_eligibility: org?.program_eligibility ?? PROGRAM_OPTIONS[0],
-    // Start with one empty row so there's somewhere to type.
-    reasons_to_join: org?.reasons_to_join.length ? org.reasons_to_join : [''],
-    testimonials: org?.testimonials.length ? org.testimonials : [{ author: '', text: '' }],
-  })
+  const form = useOrganizationForm(org)
+  const { values, set, categoriesFull, logoPreview, photos, saving, error } = form
   const [customCategory, setCustomCategory] = useState('')
-  const [logo, setLogo] = useState<File | null>(null)
-  const [logoPreview, setLogoPreview] = useState<string | null>(mediaUrl(org?.logo_path ?? null))
-  const [photos, setPhotos] = useState<PhotoItem[]>(
-    (org?.photo_paths ?? []).map((path) => ({ key: path, path, url: mediaUrl(path) ?? '' })),
-  )
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  // Free temporary preview URLs when they're replaced or the form closes.
-  useEffect(() => {
-    return () => {
-      if (logo && logoPreview) URL.revokeObjectURL(logoPreview)
-    }
-  }, [logo, logoPreview])
-
-  function set<K extends keyof OrganizationInput>(key: K, value: OrganizationInput[K]) {
-    setValues((current) => ({ ...current, [key]: value }))
-  }
-
-  // --- Categories -----------------------------------------------------------
-
-  const categoriesFull = values.categories.length >= MAX_CATEGORIES
-
-  function toggleCategory(category: string) {
-    const selected = values.categories.some((item) => item.toLowerCase() === category.toLowerCase())
-    if (selected) {
-      set('categories', values.categories.filter((item) => item.toLowerCase() !== category.toLowerCase()))
-    } else if (!categoriesFull) {
-      set('categories', [...values.categories, category])
-    }
-  }
 
   function addCustomCategory() {
-    const category = customCategory.trim()
-    if (!category || categoriesFull) return
-    if (!values.categories.some((item) => item.toLowerCase() === category.toLowerCase())) {
-      set('categories', [...values.categories, category])
-    }
+    form.addCategory(customCategory)
     setCustomCategory('')
   }
 
-  // --- Images ---------------------------------------------------------------
-
-  function checkImage(file: File, maxBytes: number) {
-    if (!IMAGE_TYPES.includes(file.type)) return `“${file.name}” must be a PNG, JPG or WebP image.`
-    if (file.size > maxBytes) return `“${file.name}” is larger than ${maxBytes / 1024 / 1024} MB.`
-    return null
-  }
-
-  function handleLogo(file: File | undefined) {
-    if (!file) return
-    const problem = checkImage(file, LOGO_MAX_BYTES)
-    setError(problem)
-    if (problem) return
-    setLogo(file)
-    setLogoPreview(URL.createObjectURL(file))
-  }
-
-  function handlePhotos(files: FileList | null) {
-    if (!files) return
-    const picked = Array.from(files)
-    const problem = picked.map((file) => checkImage(file, PHOTO_MAX_BYTES)).find(Boolean)
-    if (problem) {
-      setError(problem)
-      return
-    }
-    if (photos.length + picked.length > MAX_PHOTOS) {
-      setError(`You can add up to ${MAX_PHOTOS} photos.`)
-      return
-    }
-    setError(null)
-    setPhotos((current) => [
-      ...current,
-      ...picked.map((file) => ({ key: crypto.randomUUID(), file, url: URL.createObjectURL(file) })),
-    ])
-  }
-
-  function removePhoto(item: PhotoItem) {
-    if (item.file) URL.revokeObjectURL(item.url)
-    setPhotos((current) => current.filter((photo) => photo.key !== item.key))
-  }
-
-  // --- Lists ----------------------------------------------------------------
-
-  function updateReason(index: number, value: string) {
-    set('reasons_to_join', values.reasons_to_join.map((reason, i) => (i === index ? value : reason)))
-  }
-
-  function updateTestimonial(index: number, changes: Partial<Testimonial>) {
-    set(
-      'testimonials',
-      values.testimonials.map((item, i) => (i === index ? { ...item, ...changes } : item)),
-    )
-  }
-
-  // --- Save -----------------------------------------------------------------
-
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
-    if (!values.name.trim()) {
-      setError('Enter the organization name.')
-      return
-    }
-    if (values.categories.length === 0) {
-      setError('Pick at least one category.')
-      return
-    }
-    if (values.testimonials.some(({ author, text }) => author.trim() && !text.trim())) {
-      setError('Add the testimonial text, or remove the author name.')
-      return
-    }
-
-    setSaving(true)
-    setError(null)
-    const files = {
-      logo,
-      keptPhotoPaths: photos.flatMap((photo) => (photo.path ? [photo.path] : [])),
-      newPhotos: photos.flatMap((photo) => (photo.file ? [photo.file] : [])),
-    }
-    try {
-      if (isEdit) {
-        await updateOrganization(org, values, files)
-      } else {
-        await createOrganization(values, files)
-      }
+    if (await form.submit()) {
       onSaved()
       onClose()
-    } catch (caught) {
-      setError((caught as Error).message)
-      setSaving(false)
     }
   }
 
   return (
     <Modal
-      title={isEdit ? `Edit ${org.name}` : 'Add Organization'}
+      title={`Edit ${org.name}`}
       size="xl"
       onClose={saving ? () => {} : onClose}
       footer={
@@ -200,7 +60,7 @@ export default function OrganizationFormModal({ organization: org, onClose, onSa
             Cancel
           </button>
           <button type="submit" form="organization-form" disabled={saving} className={primaryButton}>
-            {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add Organization'}
+            {saving ? 'Saving…' : 'Save changes'}
           </button>
         </>
       }
@@ -232,7 +92,7 @@ export default function OrganizationFormModal({ organization: org, onClose, onSa
               type="file"
               accept={IMAGE_TYPES.join(',')}
               className="sr-only"
-              onChange={(event) => handleLogo(event.target.files?.[0])}
+              onChange={(event) => form.handleLogo(event.target.files?.[0])}
             />
           </label>
 
@@ -244,6 +104,28 @@ export default function OrganizationFormModal({ organization: org, onClose, onSa
               placeholder="e.g. Computer Studies Society"
               className={fieldClass}
             />
+          </label>
+
+          <label className="text-sm text-zinc-700">
+            Department <span className="text-red-600">*</span>
+            <select
+              value={values.department}
+              onChange={(event) => set('department', event.target.value)}
+              className={`${fieldClass} ${values.department ? '' : 'text-zinc-500'}`}
+            >
+              <option value="" disabled>
+                Choose a department
+              </option>
+              {/* Keep an older saved value selectable even if it's no longer in the list. */}
+              {[...new Set([...DEPARTMENT_OPTIONS, values.department].filter(Boolean))].map((department) => (
+                <option key={department} value={department} className="text-zinc-800">
+                  {department}
+                </option>
+              ))}
+            </select>
+            <span className="mt-1 block text-xs text-zinc-500">
+              Choose “University Wide” if the organization is open to students of every course.
+            </span>
           </label>
 
           <fieldset>
@@ -263,7 +145,7 @@ export default function OrganizationFormModal({ organization: org, onClose, onSa
                       type="button"
                       aria-pressed={selected}
                       disabled={!selected && categoriesFull}
-                      onClick={() => toggleCategory(category)}
+                      onClick={() => form.toggleCategory(category)}
                       className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm transition disabled:opacity-40 ${
                         selected
                           ? 'bg-brand-blue text-white'
@@ -315,11 +197,21 @@ export default function OrganizationFormModal({ organization: org, onClose, onSa
           </label>
 
           <label className="text-sm text-zinc-700">
-            Organization Mission & Vision
+            Vision
             <textarea
               rows={3}
-              value={values.mission_vision}
-              onChange={(event) => set('mission_vision', event.target.value)}
+              value={values.vision}
+              onChange={(event) => set('vision', event.target.value)}
+              className={fieldClass}
+            />
+          </label>
+
+          <label className="text-sm text-zinc-700">
+            Mission
+            <textarea
+              rows={3}
+              value={values.mission}
+              onChange={(event) => set('mission', event.target.value)}
               className={fieldClass}
             />
           </label>
@@ -367,7 +259,7 @@ export default function OrganizationFormModal({ organization: org, onClose, onSa
                   <img src={photo.url} alt="" className="size-full object-cover" />
                   <button
                     type="button"
-                    onClick={() => removePhoto(photo)}
+                    onClick={() => form.removePhoto(photo)}
                     aria-label="Remove photo"
                     className="absolute top-1 right-1 flex size-6 items-center justify-center rounded-full bg-black/60 text-white transition hover:bg-red-600"
                   >
@@ -385,7 +277,7 @@ export default function OrganizationFormModal({ organization: org, onClose, onSa
                     accept={IMAGE_TYPES.join(',')}
                     className="sr-only"
                     onChange={(event) => {
-                      handlePhotos(event.target.files)
+                      form.handlePhotos(event.target.files)
                       event.target.value = ''
                     }}
                   />
@@ -404,7 +296,7 @@ export default function OrganizationFormModal({ organization: org, onClose, onSa
                   <span className="w-5 shrink-0 text-right text-sm text-zinc-400">{index + 1}.</span>
                   <input
                     value={reason}
-                    onChange={(event) => updateReason(index, event.target.value)}
+                    onChange={(event) => form.updateReason(index, event.target.value)}
                     placeholder="e.g. Monthly hands-on workshops"
                     aria-label={`Reason ${index + 1}`}
                     className={`${fieldClass} mt-0`}
@@ -432,22 +324,6 @@ export default function OrganizationFormModal({ organization: org, onClose, onSa
             </button>
           </Section>
 
-          <label className="text-sm font-medium text-brand-navy">
-            Program Eligibility
-            <select
-              value={values.program_eligibility}
-              onChange={(event) => set('program_eligibility', event.target.value)}
-              className={`${fieldClass} font-normal`}
-            >
-              {/* Keep an older saved value selectable even if it's no longer in the list. */}
-              {[...new Set([...PROGRAM_OPTIONS, values.program_eligibility])].map((program) => (
-                <option key={program} value={program}>
-                  {program}
-                </option>
-              ))}
-            </select>
-          </label>
-
           <Section title="Member / Alumni Testimonials">
             <div className="grid gap-3">
               {values.testimonials.map((testimonial, index) => (
@@ -455,7 +331,7 @@ export default function OrganizationFormModal({ organization: org, onClose, onSa
                   <div className="flex items-center gap-2">
                     <input
                       value={testimonial.author}
-                      onChange={(event) => updateTestimonial(index, { author: event.target.value })}
+                      onChange={(event) => form.updateTestimonial(index, { author: event.target.value })}
                       placeholder="Author name"
                       aria-label={`Testimonial ${index + 1} author`}
                       className={`${fieldClass} mt-0 bg-white`}
@@ -474,7 +350,7 @@ export default function OrganizationFormModal({ organization: org, onClose, onSa
                   <textarea
                     rows={3}
                     value={testimonial.text}
-                    onChange={(event) => updateTestimonial(index, { text: event.target.value })}
+                    onChange={(event) => form.updateTestimonial(index, { text: event.target.value })}
                     placeholder="What they said about the organization"
                     aria-label={`Testimonial ${index + 1} text`}
                     className={`${fieldClass} mt-2 bg-white`}

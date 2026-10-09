@@ -130,7 +130,7 @@ function RecentPanel({
 }) {
   return (
     <section>
-      <h2 className="rounded-lg bg-[#e8eefc] px-6 py-4 text-base font-semibold text-brand-navy shadow-md ring-1 ring-zinc-300">
+      <h2 className="rounded-lg bg-[#e8eefc] px-4 py-2.5 text-sm font-semibold text-brand-navy shadow-md ring-1 ring-zinc-300">
         {title}
       </h2>
       <ul className="mt-2 px-1">{children}</ul>

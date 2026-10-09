@@ -3,26 +3,31 @@ import { useEffect, useState } from 'react'
 
 import {
   archiveOrganization,
+  COLLEGES,
   fetchOrganizations,
   mediaUrl,
   type Organization,
+  UNIVERSITY_WIDE,
   usingSampleData,
 } from '../lib/organizations'
 import ConfirmDialog from './ConfirmDialog'
+import FilterMenu, { FilterOption, FilterSection } from './FilterMenu'
 import IconButton from './IconButton'
 import OrganizationDetailsModal from './OrganizationDetailsModal'
 import OrganizationFormModal from './OrganizationFormModal'
 
 type Dialog =
-  | { kind: 'add' }
   | { kind: 'view' | 'edit' | 'archive'; org: Organization }
   | null
 
-export default function OrganizationsOverview() {
+// "Add Organization" opens its own page, through onAdd.
+export default function OrganizationsOverview({ onAdd }: { onAdd: () => void }) {
   const [organizations, setOrganizations] = useState<Organization[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
   const [query, setQuery] = useState('')
+  // A department to show only, or null for all of them.
+  const [department, setDepartment] = useState<string | null>(null)
   const [dialog, setDialog] = useState<Dialog>(null)
   const [sample, setSample] = useState(false)
 
@@ -47,8 +52,12 @@ export default function OrganizationsOverview() {
   const close = () => setDialog(null)
 
   const search = query.trim().toLowerCase()
-  const shown = (organizations ?? []).filter((org) =>
-    [org.name, ...org.categories].some((text) => text.toLowerCase().includes(search)),
+  const shown = (organizations ?? []).filter(
+    (org) =>
+      (!department || org.department === department) &&
+      [org.org_code, org.name, org.department, ...org.categories].some((text) =>
+        text.toLowerCase().includes(search),
+      ),
   )
 
   return (
@@ -73,13 +82,14 @@ export default function OrganizationsOverview() {
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search organizations"
+              placeholder="Search by name or ID"
               className="w-full rounded-full bg-field py-2 pr-4 pl-9 text-sm text-zinc-800 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-brand-blue/40"
             />
           </label>
+          <DepartmentFilter value={department} onChange={setDepartment} />
           <button
             type="button"
-            onClick={() => setDialog({ kind: 'add' })}
+            onClick={onAdd}
             className="flex items-center gap-2 rounded-full bg-brand-blue px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-navy"
           >
             <Plus size={16} aria-hidden="true" />
@@ -95,11 +105,17 @@ export default function OrganizationsOverview() {
       )}
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[560px] text-left text-sm">
+        <table className="w-full min-w-[880px] text-left text-sm">
           <thead className="border-y border-zinc-200 bg-surface text-xs tracking-wide text-zinc-500 uppercase">
             <tr>
-              <th scope="col" className="px-6 py-3 font-medium">
+              <th scope="col" className="px-6 py-3 text-center font-medium whitespace-nowrap">
+                Organization ID
+              </th>
+              <th scope="col" className="px-6 py-3 text-center font-medium">
                 Organization
+              </th>
+              <th scope="col" className="px-6 py-3 text-center font-medium">
+                Department
               </th>
               <th scope="col" className="px-6 py-3 text-center font-medium">
                 No. of Members
@@ -107,7 +123,7 @@ export default function OrganizationsOverview() {
               <th scope="col" className="px-6 py-3 text-center font-medium">
                 No. of Events
               </th>
-              <th scope="col" className="px-6 py-3 text-right font-medium">
+              <th scope="col" className="px-6 py-3 text-center font-medium">
                 Action
               </th>
             </tr>
@@ -115,20 +131,30 @@ export default function OrganizationsOverview() {
           <tbody className="divide-y divide-zinc-100">
             {shown.map((org) => (
               <tr key={org.id} className="transition hover:bg-surface/60">
+                <td className="px-6 py-4 text-center font-medium whitespace-nowrap text-zinc-700 tabular-nums">
+                  {org.org_code}
+                </td>
                 <td className="px-6 py-4">
                   <OrgNameCell org={org} />
                 </td>
+                <td className="px-6 py-4 text-center text-zinc-700">{org.department}</td>
                 {/* Real counts arrive once memberships and events are stored in Supabase. */}
                 <td className="px-6 py-4 text-center text-zinc-700">{org.member_count ?? '—'}</td>
                 <td className="px-6 py-4 text-center text-zinc-700">{org.event_count ?? '—'}</td>
                 <td className="px-6 py-4">
-                  <div className="flex justify-end gap-1">
+                  <div className="flex justify-center gap-1">
                     <IconButton icon={Eye} label={`View ${org.name}`} onClick={() => setDialog({ kind: 'view', org })} />
-                    <IconButton icon={Pencil} label={`Edit ${org.name}`} onClick={() => setDialog({ kind: 'edit', org })} />
+                    <IconButton
+                      icon={Pencil}
+                      label={`Edit ${org.name}`}
+                      colored
+                      onClick={() => setDialog({ kind: 'edit', org })}
+                    />
                     <IconButton
                       icon={Trash2}
                       label={`Move ${org.name} to Trash`}
                       danger
+                      colored
                       onClick={() => setDialog({ kind: 'archive', org })}
                     />
                   </div>
@@ -139,11 +165,14 @@ export default function OrganizationsOverview() {
               loading={organizations === null && !loadError}
               error={loadError}
               onRetry={reload}
+              columns={6}
               empty={
                 organizations !== null && shown.length === 0
                   ? search
-                    ? `No organizations match “${query.trim()}”.`
-                    : 'No organizations yet. Click “Add Organization” to create the first one.'
+                    ? `No organizations match “${query.trim()}”${department ? ` in ${department}` : ''}.`
+                    : department
+                      ? `No organizations in ${department}.`
+                      : 'No organizations yet. Click “Add Organization” to create the first one.'
                   : null
               }
             />
@@ -151,7 +180,6 @@ export default function OrganizationsOverview() {
         </table>
       </div>
 
-      {dialog?.kind === 'add' && <OrganizationFormModal onClose={close} onSaved={reload} />}
       {dialog?.kind === 'edit' && (
         <OrganizationFormModal organization={dialog.org} onClose={close} onSaved={reload} />
       )}
@@ -170,6 +198,33 @@ export default function OrganizationsOverview() {
         />
       )}
     </section>
+  )
+}
+
+// The filter button and its menu: all orgs, University Wide, or one department.
+function DepartmentFilter({
+  value,
+  onChange,
+}: {
+  value: string | null
+  onChange: (department: string | null) => void
+}) {
+  return (
+    <FilterMenu label={value ? `Filter: ${value}` : 'Filter by department'} active={!!value} closeOnSelect>
+      <FilterSection>
+        <FilterOption label="All Organizations" selected={value === null} onSelect={() => onChange(null)} />
+        <FilterOption
+          label={UNIVERSITY_WIDE}
+          selected={value === UNIVERSITY_WIDE}
+          onSelect={() => onChange(UNIVERSITY_WIDE)}
+        />
+      </FilterSection>
+      <FilterSection title="Department">
+        {COLLEGES.map((college) => (
+          <FilterOption key={college} label={college} selected={value === college} onSelect={() => onChange(college)} />
+        ))}
+      </FilterSection>
+    </FilterMenu>
   )
 }
 

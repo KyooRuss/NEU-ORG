@@ -3,7 +3,8 @@
 // with professor numbers.
 // Run from the project root with: npm run seed:users
 // Needs SUPABASE_URL, SUPABASE_SECRET_KEY and the three SEED_*_PASSWORD values in the root .env.
-// Every demo account of a role shares that role's password; professors use the students' one.
+// Every demo account of a role shares that role's password. SEED_PROFESSOR_PASSWORD is
+// optional; without it, professors use the students' password.
 
 import { createClient } from '@supabase/supabase-js';
 
@@ -81,7 +82,6 @@ const passwordVars = {
   admin: 'SEED_ADMIN_PASSWORD',
   officer: 'SEED_OFFICER_PASSWORD',
   student: 'SEED_STUDENT_PASSWORD',
-  professor: 'SEED_STUDENT_PASSWORD',
 };
 
 const { SUPABASE_URL, SUPABASE_SECRET_KEY } = process.env;
@@ -98,6 +98,13 @@ for (const passwordVar of Object.values(passwordVars)) {
     fail(`${passwordVar} must be set in .env and be at least 8 characters.`);
   }
 }
+
+// Optional: professors use the students' password unless SEED_PROFESSOR_PASSWORD is set.
+const { SEED_PROFESSOR_PASSWORD } = process.env;
+if (SEED_PROFESSOR_PASSWORD && SEED_PROFESSOR_PASSWORD.length < 8) {
+  fail('SEED_PROFESSOR_PASSWORD must be at least 8 characters, or left empty.');
+}
+const professorPassword = SEED_PROFESSOR_PASSWORD || process.env.SEED_STUDENT_PASSWORD;
 
 // The secret key bypasses RLS. It must never be used in the mobile or web app.
 const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY, {
@@ -182,7 +189,7 @@ async function findOrCreateOrganization(org) {
 }
 
 async function createOrUpdateUser(account) {
-  const password = process.env[passwordVars[account.role]];
+  const password = account.role === 'professor' ? professorPassword : process.env[passwordVars[account.role]];
   const existing = await findUserByEmail(account.email);
 
   if (existing) {

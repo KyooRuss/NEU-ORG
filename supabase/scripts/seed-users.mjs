@@ -1,8 +1,9 @@
 // Creates (or resets) the demo data: a few organizations, one admin, presidents
-// linked to those organizations, and students with student numbers.
+// linked to those organizations, students with student numbers, and professors
+// with professor numbers.
 // Run from the project root with: npm run seed:users
 // Needs SUPABASE_URL, SUPABASE_SECRET_KEY and the three SEED_*_PASSWORD values in the root .env.
-// Every demo account of a role shares that role's password.
+// Every demo account of a role shares that role's password; professors use the students' one.
 
 import { createClient } from '@supabase/supabase-js';
 
@@ -58,12 +59,29 @@ const accounts = [
     yearLevel: 2,
     status: 'suspended',
   },
+  // Professors have the "student" role in the database; their professor number puts
+  // them on Users > Professors instead of Students.
+  {
+    email: 'professor@neuorg.test',
+    fullName: 'Dr. Ramon Castillo',
+    role: 'professor',
+    professorNo: 'P0001',
+    department: 'College of Computer Studies',
+  },
+  {
+    email: 'professor2@neuorg.test',
+    fullName: 'Prof. Liza Navarro',
+    role: 'professor',
+    professorNo: 'P0002',
+    department: 'College of Accountancy',
+  },
 ];
 
 const passwordVars = {
   admin: 'SEED_ADMIN_PASSWORD',
   officer: 'SEED_OFFICER_PASSWORD',
   student: 'SEED_STUDENT_PASSWORD',
+  professor: 'SEED_STUDENT_PASSWORD',
 };
 
 const { SUPABASE_URL, SUPABASE_SECRET_KEY } = process.env;
@@ -100,10 +118,12 @@ for (const account of accounts) {
   const { data: profiles, error: profileError } = await supabase
     .from('profiles')
     .update({
-      role: account.role === 'officer' ? 'student' : account.role,
+      role: account.role === 'admin' ? 'admin' : 'student',
       full_name: account.fullName,
       student_no: account.studentNo ?? null,
       year_level: account.yearLevel ?? null,
+      professor_no: account.professorNo ?? null,
+      department: account.department ?? null,
       status: account.status ?? 'active',
     })
     .eq('id', userId)

@@ -152,6 +152,7 @@ npm run seed:users        # create or reset the demo organizations and accounts
 | `officer@neuorg.test` | Officer | `SEED_OFFICER_PASSWORD` | President of Cybersecurity Alliance |
 | `officer2@neuorg.test` | Officer | `SEED_OFFICER_PASSWORD` | President of Code Innovators Guild |
 | `student@neuorg.test` – `student4@neuorg.test` | Student | `SEED_STUDENT_PASSWORD` | `student4` is suspended |
+| `professor@neuorg.test`, `professor2@neuorg.test` | Professor (student access) | `SEED_PROFESSOR_PASSWORD`, or `SEED_STUDENT_PASSWORD` if it's empty | Professor numbers P0001 and P0002 |
 
 It also creates three organizations if they don't exist. NEU Debate Society is left without a president, for demoing **Assign president**. If an organization already has a real president, the seeder leaves them in place and doesn't link the demo officer.
 

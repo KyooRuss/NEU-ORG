@@ -1,8 +1,10 @@
 // Creates (or resets) the demo data: a few organizations, one admin, presidents
-// linked to those organizations, and students with student numbers.
+// linked to those organizations, students with student numbers, and professors
+// with professor numbers.
 // Run from the project root with: npm run seed:users
 // Needs SUPABASE_URL, SUPABASE_SECRET_KEY and the three SEED_*_PASSWORD values in the root .env.
-// Every demo account of a role shares that role's password.
+// Every demo account of a role shares that role's password. SEED_PROFESSOR_PASSWORD is
+// optional; without it, professors use the students' password.
 
 import { createClient } from '@supabase/supabase-js';
 
@@ -58,6 +60,22 @@ const accounts = [
     yearLevel: 2,
     status: 'suspended',
   },
+  // Professors have the "student" role in the database; their professor number puts
+  // them on Users > Professors instead of Students.
+  {
+    email: 'professor@neuorg.test',
+    fullName: 'Dr. Ramon Castillo',
+    role: 'professor',
+    professorNo: 'P0001',
+    department: 'College of Computer Studies',
+  },
+  {
+    email: 'professor2@neuorg.test',
+    fullName: 'Prof. Liza Navarro',
+    role: 'professor',
+    professorNo: 'P0002',
+    department: 'College of Accountancy',
+  },
 ];
 
 const passwordVars = {
@@ -81,6 +99,13 @@ for (const passwordVar of Object.values(passwordVars)) {
   }
 }
 
+// Optional: professors use the students' password unless SEED_PROFESSOR_PASSWORD is set.
+const { SEED_PROFESSOR_PASSWORD } = process.env;
+if (SEED_PROFESSOR_PASSWORD && SEED_PROFESSOR_PASSWORD.length < 8) {
+  fail('SEED_PROFESSOR_PASSWORD must be at least 8 characters, or left empty.');
+}
+const professorPassword = SEED_PROFESSOR_PASSWORD || process.env.SEED_STUDENT_PASSWORD;
+
 // The secret key bypasses RLS. It must never be used in the mobile or web app.
 const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
@@ -100,10 +125,12 @@ for (const account of accounts) {
   const { data: profiles, error: profileError } = await supabase
     .from('profiles')
     .update({
-      role: account.role === 'officer' ? 'student' : account.role,
+      role: account.role === 'admin' ? 'admin' : 'student',
       full_name: account.fullName,
       student_no: account.studentNo ?? null,
       year_level: account.yearLevel ?? null,
+      professor_no: account.professorNo ?? null,
+      department: account.department ?? null,
       status: account.status ?? 'active',
     })
     .eq('id', userId)
@@ -162,7 +189,7 @@ async function findOrCreateOrganization(org) {
 }
 
 async function createOrUpdateUser(account) {
-  const password = process.env[passwordVars[account.role]];
+  const password = account.role === 'professor' ? professorPassword : process.env[passwordVars[account.role]];
   const existing = await findUserByEmail(account.email);
 
   if (existing) {

@@ -248,11 +248,14 @@ export async function fetchEventRequests(tab: RequestTab): Promise<OrgEvent[]> {
 
 // Approved events. "Upcoming" lasts until the event ends, so one happening today still shows.
 // Upcoming: nearest first. Past: most recent first.
-export async function fetchApprovedEvents(timing: EventTiming): Promise<OrgEvent[]> {
+// Pass organizationIds to keep only those organizations' events (the officer dashboard).
+export async function fetchApprovedEvents(timing: EventTiming, organizationIds?: string[]): Promise<OrgEvent[]> {
+  if (organizationIds?.length === 0) return []
   const now = new Date().toISOString()
 
   if (!sampleStore) {
-    const query = supabase.from('events').select(EVENT_COLUMNS).eq('status', 'approved')
+    let query = supabase.from('events').select(EVENT_COLUMNS).eq('status', 'approved')
+    if (organizationIds) query = query.in('organization_id', organizationIds)
     const { data, error } = await (timing === 'upcoming'
       ? query.gte('ends_at', now).order('starts_at', { ascending: true })
       : query.lt('ends_at', now).order('starts_at', { ascending: false }))
@@ -264,7 +267,9 @@ export async function fetchApprovedEvents(timing: EventTiming): Promise<OrgEvent
   return sampleStore!
     .filter(
       (event) =>
-        event.status === 'approved' && (timing === 'upcoming' ? event.ends_at >= now : event.ends_at < now),
+        event.status === 'approved' &&
+        (timing === 'upcoming' ? event.ends_at >= now : event.ends_at < now) &&
+        (!organizationIds || organizationIds.includes(event.organization_id)),
     )
     .sort((a, b) =>
       timing === 'upcoming'

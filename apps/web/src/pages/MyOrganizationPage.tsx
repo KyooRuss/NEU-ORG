@@ -1,7 +1,9 @@
-import { Building2, type LucideIcon, MapPin, Quote, Send, UserRound } from 'lucide-react'
+import { Building2, ImageOff, type LucideIcon, MapPin, Quote, Send, UserRound } from 'lucide-react'
 import { type ReactNode, useEffect, useState } from 'react'
 
+import EventReviewModal from '../components/EventReviewModal'
 import PhotoCarousel from '../components/PhotoCarousel'
+import { fetchApprovedEvents, formatEventDay, type OrgEvent, posterUrl } from '../lib/events'
 import { fetchMyOrganizationIds } from '../lib/officers'
 import { fetchOrganizationsByIds, mediaUrl, type Organization } from '../lib/organizations'
 
@@ -102,6 +104,9 @@ export default function MyOrganizationPage({ profileId }: { profileId: string })
                   </div>
                 )}
               </Card>
+
+              {/* A new key reloads the events when the officer switches organization. */}
+              <EventHighlights key={org.id} organizationId={org.id} />
             </div>
 
             <div className="grid gap-6">
@@ -148,6 +153,75 @@ function ProfileCard({ org }: { org: Organization }) {
           <Contact icon={Send} label="Telegram" value={org.telegram_contact} />
         </ul>
       </div>
+    </section>
+  )
+}
+
+const MAX_HIGHLIGHTS = 6
+
+// The organization's latest events that already took place.
+function EventHighlights({ organizationId }: { organizationId: string }) {
+  const [events, setEvents] = useState<OrgEvent[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [viewing, setViewing] = useState<OrgEvent | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetchApprovedEvents('past', [organizationId])
+      .then((loaded) => {
+        if (!cancelled) setEvents(loaded.slice(0, MAX_HIGHLIGHTS))
+      })
+      .catch((caught: Error) => {
+        if (!cancelled) setError(caught.message)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [organizationId])
+
+  const status = error
+    ? `Could not load events: ${error}`
+    : events === null
+      ? 'Loading…'
+      : events.length === 0
+        ? 'No past events yet.'
+        : null
+
+  return (
+    <section className={cardClass}>
+      <h2 className="font-semibold text-brand-navy">Event Highlights</h2>
+      {status ? (
+        <p className="mt-3 text-sm text-zinc-500">{status}</p>
+      ) : (
+        <ul className="mt-3 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {events?.map((event) => {
+            const poster = posterUrl(event.poster_path)
+            return (
+              <li key={event.id}>
+                <button
+                  type="button"
+                  onClick={() => setViewing(event)}
+                  aria-label={`View ${event.title}`}
+                  className="block w-full overflow-hidden rounded-lg bg-brand-blue/5 text-left ring-1 ring-zinc-200 transition hover:ring-brand-blue/50"
+                >
+                  <span className="flex aspect-video items-center justify-center bg-field text-zinc-400">
+                    {poster ? (
+                      <img src={poster} alt="" className="size-full object-cover" />
+                    ) : (
+                      <ImageOff size={24} aria-hidden="true" />
+                    )}
+                  </span>
+                  <span className="block p-3">
+                    <span className="block truncate text-sm font-semibold text-zinc-900">{event.title}</span>
+                    <span className="block text-xs text-zinc-500">{formatEventDay(event)}</span>
+                  </span>
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+      {viewing && <EventReviewModal event={viewing} onClose={() => setViewing(null)} onReviewed={() => {}} />}
     </section>
   )
 }

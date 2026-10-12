@@ -1,6 +1,7 @@
 import { Building2, type LucideIcon, MapPin, Quote, Send, UserRound } from 'lucide-react'
 import { type ReactNode, useEffect, useState } from 'react'
 
+import PhotoCarousel from '../components/PhotoCarousel'
 import { fetchMyOrganizationIds } from '../lib/officers'
 import { fetchOrganizationsByIds, mediaUrl, type Organization } from '../lib/organizations'
 
@@ -110,6 +111,14 @@ export default function MyOrganizationPage({ profileId }: { profileId: string })
               <Card title="MISSION" accent>
                 {org.mission && <p className="text-sm whitespace-pre-line text-zinc-700">{org.mission}</p>}
               </Card>
+              <section className={cardClass}>
+                <h2 className="sr-only">Photos from previous events</h2>
+                {/* A new key starts the carousel over when the officer switches organization. */}
+                <PhotoCarousel
+                  key={org.id}
+                  photos={org.photo_paths.flatMap((path) => mediaUrl(path) ?? [])}
+                />
+              </section>
             </div>
           </div>
         </>

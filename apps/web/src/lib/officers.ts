@@ -117,6 +117,25 @@ export async function fetchOfficers(archived = false): Promise<Officer[]> {
     .sort((a, b) => a.admin_no.localeCompare(b.admin_no))
 }
 
+// The organizations the logged-in officer holds an active position in. Usually one,
+// but the same person can be an officer in several.
+export async function fetchMyOrganizationIds(profileId: string): Promise<string[]> {
+  if (!sampleStore) {
+    const { data, error } = await supabase
+      .from('officers')
+      .select('organization_id')
+      .eq('profile_id', profileId)
+      .eq('status', 'active')
+      .is('archived_at', null)
+
+    if (!error) return data.map((row) => row.organization_id as string)
+    if (!isMissingTable(error)) throw new Error(error.message)
+  }
+
+  // The sample officers aren't real accounts, so none of them is the person logged in.
+  return []
+}
+
 // Goes through the set_officer_status database function, which also updates the
 // person's role. Reactivating fails while the organization has another active president.
 export async function setOfficerStatus(id: string, status: OfficerStatus) {

@@ -15,6 +15,8 @@ import useOrganizationForm from './useOrganizationForm'
 // Adding an organization has its own page (AddOrganizationPage); this edits one.
 type Props = {
   organization: Organization
+  // The officer's version: without the name, department and category, which only admins change.
+  profileOnly?: boolean
   onClose: () => void
   onSaved: () => void
 }
@@ -26,8 +28,8 @@ const addButton =
 const removeButton =
   'flex size-8 shrink-0 items-center justify-center rounded-lg text-zinc-400 transition hover:bg-red-50 hover:text-red-600'
 
-export default function OrganizationFormModal({ organization: org, onClose, onSaved }: Props) {
-  const form = useOrganizationForm(org)
+export default function OrganizationFormModal({ organization: org, profileOnly, onClose, onSaved }: Props) {
+  const form = useOrganizationForm(org, { profileOnly })
   const { values, set, categoriesFull, logoPreview, photos, saving, error } = form
   const [customCategory, setCustomCategory] = useState('')
 
@@ -46,7 +48,7 @@ export default function OrganizationFormModal({ organization: org, onClose, onSa
 
   return (
     <Modal
-      title={`Edit ${org.name}`}
+      title={profileOnly ? 'Edit Profile' : `Edit ${org.name}`}
       size="xl"
       onClose={saving ? () => {} : onClose}
       footer={
@@ -96,6 +98,8 @@ export default function OrganizationFormModal({ organization: org, onClose, onSa
             />
           </label>
 
+          {!profileOnly && (
+          <>
           <label className="text-sm text-zinc-700">
             Organization Name <span className="text-red-600">*</span>
             <input
@@ -184,6 +188,8 @@ export default function OrganizationFormModal({ organization: org, onClose, onSa
               </button>
             </div>
           </fieldset>
+          </>
+          )}
 
           <label className="text-sm text-zinc-700">
             Short Description / Overview

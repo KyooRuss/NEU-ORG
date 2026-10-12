@@ -1,7 +1,9 @@
-import { Building2, ImageOff, type LucideIcon, MapPin, Quote, Send, UserRound } from 'lucide-react'
+import { Building2, ImageOff, type LucideIcon, MapPin, Pencil, Quote, Send, UserRound } from 'lucide-react'
 import { type ReactNode, useEffect, useState } from 'react'
 
 import EventReviewModal from '../components/EventReviewModal'
+import { primaryButton } from '../components/Modal'
+import OrganizationFormModal from '../components/OrganizationFormModal'
 import PhotoCarousel from '../components/PhotoCarousel'
 import { fetchApprovedEvents, formatEventDay, type OrgEvent, posterUrl } from '../lib/events'
 import { fetchMyOrganizationIds } from '../lib/officers'
@@ -15,6 +17,9 @@ export default function MyOrganizationPage({ profileId }: { profileId: string })
   const [orgs, setOrgs] = useState<Organization[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [editing, setEditing] = useState(false)
+  // Bumped after a save, so the page shows what was just changed.
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -29,14 +34,14 @@ export default function MyOrganizationPage({ profileId }: { profileId: string })
     return () => {
       cancelled = true
     }
-  }, [profileId])
+  }, [profileId, reloadKey])
 
   const org = orgs?.find((item) => item.id === selectedId) ?? orgs?.[0]
 
   return (
     <>
       <section className="rounded-2xl bg-linear-to-r from-brand-navy to-[#2f45c8] px-6 py-8 text-white shadow-lg sm:px-12">
-        <h1 className="truncate text-2xl font-bold">My Organization</h1>
+        <h1 className="truncate text-2xl font-bold">Organization</h1>
         <p className="mt-1 text-sm text-white/90">View and update your organization's profile</p>
       </section>
 
@@ -50,26 +55,36 @@ export default function MyOrganizationPage({ profileId }: { profileId: string })
         <p className="mt-8 text-center text-sm text-zinc-500">You aren't assigned to an organization yet.</p>
       ) : (
         <>
-          {orgs.length > 1 && (
-            <div role="tablist" aria-label="Your organizations" className="mt-6 flex flex-wrap gap-2">
-              {orgs.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={item.id === org.id}
-                  onClick={() => setSelectedId(item.id)}
-                  className={`rounded-full px-4 py-1.5 text-sm transition ${
-                    item.id === org.id
-                      ? 'bg-brand-blue text-white'
-                      : 'bg-white text-zinc-700 ring-1 ring-zinc-300 hover:bg-zinc-50'
-                  }`}
-                >
-                  {item.name}
-                </button>
-              ))}
-            </div>
-          )}
+          <div className="mt-6 flex flex-wrap items-center gap-2">
+            {orgs.length > 1 && (
+              <div role="tablist" aria-label="Your organizations" className="flex flex-wrap gap-2">
+                {orgs.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={item.id === org.id}
+                    onClick={() => setSelectedId(item.id)}
+                    className={`rounded-full px-4 py-1.5 text-sm transition ${
+                      item.id === org.id
+                        ? 'bg-brand-blue text-white'
+                        : 'bg-white text-zinc-700 ring-1 ring-zinc-300 hover:bg-zinc-50'
+                    }`}
+                  >
+                    {item.name}
+                  </button>
+                ))}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className={`${primaryButton} ml-auto inline-flex items-center gap-2`}
+            >
+              <Pencil size={14} aria-hidden="true" />
+              Edit Profile
+            </button>
+          </div>
 
           <div className="mt-6 grid items-start gap-6 lg:grid-cols-[3fr_1fr]">
             <div className="grid gap-6">
@@ -126,6 +141,15 @@ export default function MyOrganizationPage({ profileId }: { profileId: string })
               </section>
             </div>
           </div>
+
+          {editing && (
+            <OrganizationFormModal
+              organization={org}
+              profileOnly
+              onClose={() => setEditing(false)}
+              onSaved={() => setReloadKey((key) => key + 1)}
+            />
+          )}
         </>
       )}
     </>

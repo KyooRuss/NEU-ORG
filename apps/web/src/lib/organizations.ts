@@ -262,9 +262,40 @@ export async function updateOrganization(
   files: OrganizationFiles,
 ) {
   const values = clean(input)
+  if (sampleStore) checkSampleName(values.name, org.id)
+  await saveChanges(org, values, files)
+}
 
+// For officers: saves the profile and images, and leaves the fields only an admin
+// can change (name, categories, department, program eligibility) as they are.
+export async function updateOrganizationProfile(
+  org: Organization,
+  input: OrganizationInput,
+  files: OrganizationFiles,
+) {
+  const values = clean(input)
+  await saveChanges(
+    org,
+    {
+      description: values.description,
+      vision: values.vision,
+      mission: values.mission,
+      room_number: values.room_number,
+      telegram_contact: values.telegram_contact,
+      facebook_contact: values.facebook_contact,
+      reasons_to_join: values.reasons_to_join,
+      testimonials: values.testimonials,
+    },
+    files,
+  )
+}
+
+async function saveChanges(
+  org: Organization,
+  values: Partial<ReturnType<typeof clean>>,
+  files: OrganizationFiles,
+) {
   if (sampleStore) {
-    checkSampleName(values.name, org.id)
     Object.assign(findSample(org.id), values, {
       logo_path: files.logo ? URL.createObjectURL(files.logo) : org.logo_path,
       photo_paths: [...files.keptPhotoPaths, ...files.newPhotos.map((file) => URL.createObjectURL(file))],

@@ -15,6 +15,8 @@ import useOrganizationForm from './useOrganizationForm'
 // Adding an organization has its own page (AddOrganizationPage); this edits one.
 type Props = {
   organization: Organization
+  // The officer's version: without the name, department and category, which only admins change.
+  profileOnly?: boolean
   onClose: () => void
   onSaved: () => void
 }
@@ -26,8 +28,8 @@ const addButton =
 const removeButton =
   'flex size-8 shrink-0 items-center justify-center rounded-lg text-zinc-400 transition hover:bg-red-50 hover:text-red-600'
 
-export default function OrganizationFormModal({ organization: org, onClose, onSaved }: Props) {
-  const form = useOrganizationForm(org)
+export default function OrganizationFormModal({ organization: org, profileOnly, onClose, onSaved }: Props) {
+  const form = useOrganizationForm(org, { profileOnly })
   const { values, set, categoriesFull, logoPreview, photos, saving, error } = form
   const [customCategory, setCustomCategory] = useState('')
 
@@ -46,7 +48,7 @@ export default function OrganizationFormModal({ organization: org, onClose, onSa
 
   return (
     <Modal
-      title={`Edit ${org.name}`}
+      title={profileOnly ? 'Edit Profile' : `Edit ${org.name}`}
       size="xl"
       onClose={saving ? () => {} : onClose}
       footer={
@@ -73,29 +75,38 @@ export default function OrganizationFormModal({ organization: org, onClose, onSa
       >
         {/* Left column: who the org is and how to reach them. */}
         <div className="grid content-start gap-5">
-          <label className="group relative flex h-44 cursor-pointer flex-col items-center justify-center gap-2 overflow-hidden rounded-xl border-2 border-dashed border-zinc-300 bg-surface text-zinc-500 transition hover:border-brand-blue/60 focus-within:ring-2 focus-within:ring-brand-blue/40">
-            {logoPreview ? (
-              <>
-                <img src={logoPreview} alt="Logo / cover preview" className="absolute inset-0 size-full object-cover" />
-                <span className="relative rounded-full bg-black/60 px-3 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
-                  Change image
-                </span>
-              </>
-            ) : (
-              <>
+          {/* A circle, the shape the logo is shown in everywhere else. */}
+          <div className="flex items-center gap-4">
+            <label
+              title={logoPreview ? 'Change logo' : 'Upload logo'}
+              className="group relative flex size-28 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-zinc-300 bg-surface text-zinc-500 transition hover:border-brand-blue/60 focus-within:ring-2 focus-within:ring-brand-blue/40"
+            >
+              {logoPreview ? (
+                <>
+                  <img src={logoPreview} alt="Logo preview" className="absolute inset-0 size-full object-cover" />
+                  <span className="relative rounded-full bg-black/60 px-2 py-0.5 text-[11px] text-white opacity-0 transition group-hover:opacity-100">
+                    Change
+                  </span>
+                </>
+              ) : (
                 <ImagePlus size={28} aria-hidden="true" />
-                <span className="text-sm font-medium">Upload organization logo / cover</span>
-                <span className="text-xs">PNG, JPG or WebP, up to 2 MB</span>
-              </>
-            )}
-            <input
-              type="file"
-              accept={IMAGE_TYPES.join(',')}
-              className="sr-only"
-              onChange={(event) => form.handleLogo(event.target.files?.[0])}
-            />
-          </label>
+              )}
+              <span className="sr-only">Organization logo</span>
+              <input
+                type="file"
+                accept={IMAGE_TYPES.join(',')}
+                className="sr-only"
+                onChange={(event) => form.handleLogo(event.target.files?.[0])}
+              />
+            </label>
+            <div className="text-sm text-zinc-700">
+              <p className="font-medium">Organization Logo</p>
+              <p className="text-xs text-zinc-500">PNG, JPG or WebP, up to 2 MB</p>
+            </div>
+          </div>
 
+          {!profileOnly && (
+          <>
           <label className="text-sm text-zinc-700">
             Organization Name <span className="text-red-600">*</span>
             <input
@@ -184,6 +195,8 @@ export default function OrganizationFormModal({ organization: org, onClose, onSa
               </button>
             </div>
           </fieldset>
+          </>
+          )}
 
           <label className="text-sm text-zinc-700">
             Short Description / Overview

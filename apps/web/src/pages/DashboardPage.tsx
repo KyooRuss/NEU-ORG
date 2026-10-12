@@ -29,6 +29,7 @@ import AddOrganizationPage from './AddOrganizationPage'
 import AdminOfficersPage from './AdminOfficersPage'
 import ApprovedEventsPage from './ApprovedEventsPage'
 import EventRequestsPage from './EventRequestsPage'
+import MyOrganizationPage from './MyOrganizationPage'
 import ProfessorsPage from './ProfessorsPage'
 import StudentsPage from './StudentsPage'
 import TrashPage, { type TrashKind } from './TrashPage'
@@ -79,6 +80,9 @@ const officerNav: NavItem[] = [
   { label: 'Feedback', icon: MessageSquareText },
 ]
 
+// The officer pages that exist so far (besides Dashboard).
+const officerPages = ['My Organization']
+
 const adminStats: StatCard[] = [
   { key: 'organizations', label: 'Organizations', hint: 'Verified Main Campus Orgs', icon: Users },
   { key: 'pendingEvents', label: 'Pending Event Requests', hint: 'Waiting for your review', icon: ClipboardCheck },
@@ -121,14 +125,14 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
   const [pinned, setPinned] = useState(false)
   const [hovered, setHovered] = useState(false)
   const collapsed = !pinned && !hovered
-  // Which sidebar page is open. Only Dashboard and (for admins) the pages in adminPages exist so far.
+  // Which sidebar page is open. Only Dashboard and the pages in adminPages or officerPages exist so far.
   const [page, setPage] = useState('Dashboard')
   // The sidebar item to highlight. Pages outside the sidebar highlight the item they belong to.
   const navPage = page === ADD_ORGANIZATION ? 'Organizations' : page
   // Which submenu is open, by its parent's label.
   const [openGroup, setOpenGroup] = useState<string | null>(null)
   const openPage = (label: string) => {
-    if (label === 'Dashboard' || (isAdmin && adminPages.includes(label))) {
+    if (label === 'Dashboard' || (isAdmin ? adminPages : officerPages).includes(label)) {
       setPage(label)
       window.scrollTo(0, 0)
       // Keep the submenu of the page's group open, so the admin sees where they are.
@@ -379,6 +383,8 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
             onCancel={() => openPage('Organizations')}
             onSaved={() => openPage('Organizations')}
           />
+        ) : page === 'My Organization' ? (
+          <MyOrganizationPage profileId={profile.id} />
         ) : (
           <>
             <section className="rounded-2xl bg-linear-to-r from-brand-navy to-[#2f45c8] px-6 py-8 text-white shadow-lg sm:px-12">

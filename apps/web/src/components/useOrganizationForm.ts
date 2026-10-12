@@ -14,6 +14,7 @@ import {
   PROGRAM_OPTIONS,
   type Testimonial,
   updateOrganization,
+  updateOrganizationProfile,
 } from '../lib/organizations'
 
 // A photo already saved (path) or a new one picked in this form (file).
@@ -21,7 +22,8 @@ export type PhotoItem = { key: string; url: string; path?: string; file?: File }
 
 // The state and rules shared by the Add Organization page and the edit form.
 // Leave out the organization to add a new one; pass one to edit it.
-export default function useOrganizationForm(org?: Organization) {
+// With profileOnly, saving leaves the admin-only fields alone (the officer's edit form).
+export default function useOrganizationForm(org?: Organization, { profileOnly = false } = {}) {
   const [values, setValues] = useState<OrganizationInput>({
     name: org?.name ?? '',
     categories: org?.categories ?? [],
@@ -163,8 +165,9 @@ export default function useOrganizationForm(org?: Organization) {
       newPhotos: photos.flatMap((photo) => (photo.file ? [photo.file] : [])),
     }
     try {
-      if (org) await updateOrganization(org, values, files)
-      else await createOrganization(values, files)
+      if (!org) await createOrganization(values, files)
+      else if (profileOnly) await updateOrganizationProfile(org, values, files)
+      else await updateOrganization(org, values, files)
       return true
     } catch (caught) {
       setError((caught as Error).message)

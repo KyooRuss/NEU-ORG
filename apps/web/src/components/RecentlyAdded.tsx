@@ -119,7 +119,7 @@ export function RecentEvents() {
   )
 }
 
-function RecentPanel({
+export function RecentPanel({
   title,
   status,
   children,
@@ -139,7 +139,7 @@ function RecentPanel({
   )
 }
 
-function RecentRow({
+export function RecentRow({
   label,
   onClick,
   avatar,

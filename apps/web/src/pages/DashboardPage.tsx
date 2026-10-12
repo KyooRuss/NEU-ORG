@@ -20,6 +20,7 @@ import { useEffect, useState } from 'react'
 import MemorandumPanel from '../components/MemorandumPanel'
 import OrganizationsOverview from '../components/OrganizationsOverview'
 import { RecentEvents, RecentOrganizations } from '../components/RecentlyAdded'
+import UpcomingEvents from '../components/UpcomingEvents'
 import { countPendingEvents, countUpcomingEvents } from '../lib/events'
 import { fetchOrganizations } from '../lib/organizations'
 import type { Profile } from '../lib/profile'
@@ -412,13 +413,9 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
                 </div>
               </div>
             ) : (
-              <section className="mt-6 rounded-xl bg-white p-6 shadow-sm ring-1 ring-zinc-200">
-                <h2 className="font-semibold text-brand-navy">Your recent event posts</h2>
-                <p className="mt-2 text-sm text-zinc-500">
-                  Event posts you submit will appear here with their status: Approved, Waiting for
-                  approval or Revision.
-                </p>
-              </section>
+              <div className="mt-8">
+                <UpcomingEvents profileId={profile.id} />
+              </div>
             )}
           </>
         )}

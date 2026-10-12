@@ -209,6 +209,21 @@ export async function fetchOrganizations(status: OrgStatus): Promise<Organizatio
     )
 }
 
+// The organizations with these IDs, by name. For officers, who only work with their own.
+export async function fetchOrganizationsByIds(ids: string[]): Promise<Organization[]> {
+  if (ids.length === 0) return []
+
+  if (!sampleStore) {
+    const { data, error } = await supabase.from('organizations').select('*').in('id', ids).order('name')
+
+    if (!error) return data
+    if (!isMissingTable(error)) throw friendlyError(error)
+    sampleStore = createSampleStore()
+  }
+
+  return sampleStore.filter((org) => ids.includes(org.id)).sort((a, b) => a.name.localeCompare(b.name))
+}
+
 export async function createOrganization(input: OrganizationInput, files: OrganizationFiles) {
   const values = clean(input)
   const id = crypto.randomUUID()

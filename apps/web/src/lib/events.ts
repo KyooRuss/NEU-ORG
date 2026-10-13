@@ -1,7 +1,15 @@
-import { fetchOrganizations } from './organizations'
+import { fetchOrganizations, type Organization } from './organizations'
 import { supabase } from './supabase'
 
 export type EventStatus = 'pending' | 'revision' | 'approved' | 'declined'
+
+// Who can join the event. 'colleges' comes with the list in audience_colleges.
+export type EventAudience = 'everyone' | 'members' | 'colleges'
+export const EVENT_AUDIENCES: { value: EventAudience; label: string }[] = [
+  { value: 'everyone', label: 'Open to all students' },
+  { value: 'members', label: 'Members only' },
+  { value: 'colleges', label: 'Specific colleges' },
+]
 
 // The parts of a request an admin can ask the officers to fix.
 export type EventSection = 'poster' | 'description' | 'details'
@@ -24,6 +32,11 @@ export type OrgEvent = {
   ends_at: string
   // Path inside the "event-media" storage bucket.
   poster_path: string | null
+  audience: EventAudience
+  // Only filled in when the audience is 'colleges'.
+  audience_colleges: string[]
+  // An outside sign-up form (e.g. Google Forms). Registrations aren't stored in the app.
+  registration_url: string | null
   status: EventStatus
   decline_reason: string | null
   submitted_at: string
@@ -31,6 +44,19 @@ export type OrgEvent = {
   updated_at: string
   // How many revision comments it has. A pending request with comments was resubmitted.
   comment_count: number
+}
+
+// What the officer's event form sends. The dates are ISO strings.
+export type EventInput = {
+  title: string
+  description: string
+  venue: string
+  starts_at: string
+  ends_at: string
+  audience: EventAudience
+  audience_colleges: string[]
+  // Empty when there's no sign-up form.
+  registration_url: string
 }
 
 export type EventComment = {
@@ -82,6 +108,12 @@ export function formatEventTime(event: Pick<OrgEvent, 'starts_at' | 'ends_at'>) 
 
 export function formatDay(iso: string) {
   return dayFormat.format(new Date(iso))
+}
+
+// "Open to all students", "Members only", or the names of the colleges.
+export function formatAudience(event: Pick<OrgEvent, 'audience' | 'audience_colleges'>) {
+  if (event.audience === 'colleges') return event.audience_colleges.join(', ')
+  return (EVENT_AUDIENCES.find((item) => item.value === event.audience) ?? EVENT_AUDIENCES[0]).label
 }
 
 // True when a pending request came back from the officers after a revision.
@@ -144,6 +176,9 @@ async function createSampleStore(): Promise<OrgEvent[]> {
     starts_at: dayAt(startDay, 9),
     ends_at: dayAt(startDay, 16),
     poster_path: null,
+    audience: 'everyone',
+    audience_colleges: [],
+    registration_url: null,
     status,
     decline_reason: null,
     submitted_at: dayAt(-7 + index, 10),
@@ -276,6 +311,46 @@ export async function fetchApprovedEvents(timing: EventTiming, organizationIds?:
         ? a.starts_at.localeCompare(b.starts_at)
         : b.starts_at.localeCompare(a.starts_at),
     )
+}
+
+// Every request of the officer's organizations, whatever its status. Newest first.
+export async function fetchMyEvents(organizationIds: string[]): Promise<OrgEvent[]> {
+  if (organizationIds.length === 0) return []
+
+  if (!sampleStore) {
+    const { data, error } = await supabase
+      .from('events')
+      .select(EVENT_COLUMNS)
+      .in('organization_id', organizationIds)
+      .order('submitted_at', { ascending: false })
+
+    if (!error) return (data as EventRow[]).map(fromRow)
+    await ensureSampleStore(error)
+  }
+
+  return sampleStore!
+    .filter((event) => organizationIds.includes(event.organization_id))
+    .sort((a, b) => b.submitted_at.localeCompare(a.submitted_at))
+}
+
+// For the officer dashboard card: requests still waiting for the admin.
+export async function countMyPendingEvents(organizationIds: string[]): Promise<number> {
+  if (organizationIds.length === 0) return 0
+
+  if (!sampleStore) {
+    const { count, error } = await supabase
+      .from('events')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'pending')
+      .in('organization_id', organizationIds)
+
+    if (!error) return count ?? 0
+    await ensureSampleStore(error)
+  }
+
+  return sampleStore!.filter(
+    (event) => event.status === 'pending' && organizationIds.includes(event.organization_id),
+  ).length
 }
 
 // For the badge on the Events menu.
@@ -421,8 +496,122 @@ export async function declineEvent(id: string, reason: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Officer actions
+// ---------------------------------------------------------------------------
+
+// Submits a new request. It starts as pending and can't be edited until the admin sends it back.
+export async function createEvent(
+  organization: Pick<Organization, 'id' | 'name' | 'department'>,
+  input: EventInput,
+  poster: File,
+) {
+  const values = clean(input)
+  const id = crypto.randomUUID()
+
+  if (sampleStore) {
+    const now = new Date().toISOString()
+    sampleStore.push({
+      id,
+      organization_id: organization.id,
+      organization_name: organization.name,
+      organization_department: organization.department,
+      ...values,
+      poster_path: URL.createObjectURL(poster),
+      status: 'pending',
+      decline_reason: null,
+      submitted_at: now,
+      approved_at: null,
+      updated_at: now,
+      comment_count: 0,
+    })
+    return
+  }
+
+  // The poster goes up first, so the request is never saved without one.
+  const posterPath = await uploadPoster(organization.id, id, poster)
+  const { error } = await supabase
+    .from('events')
+    .insert({ id, organization_id: organization.id, ...values, poster_path: posterPath })
+
+  if (error) {
+    await removePosters([posterPath])
+    throw new Error(error.message)
+  }
+}
+
+// Saves the officer's changes to a request in revision and sends it back to the admin.
+// Leave out the poster to keep the current one.
+export async function resubmitEvent(event: OrgEvent, input: EventInput, poster: File | null) {
+  const values = clean(input)
+
+  if (sampleStore) {
+    Object.assign(findReviewable(event.id, ['revision']), values, {
+      poster_path: poster ? URL.createObjectURL(poster) : event.poster_path,
+      status: 'pending',
+      updated_at: new Date().toISOString(),
+    })
+    return
+  }
+
+  const posterPath = poster
+    ? await uploadPoster(event.organization_id, event.id, poster)
+    : event.poster_path
+  const { data, error } = await supabase
+    .from('events')
+    .update({ ...values, poster_path: posterPath, status: 'pending' })
+    .eq('id', event.id)
+    .eq('status', 'revision')
+    .select('id')
+
+  if (error || data.length === 0) {
+    if (poster) await removePosters([posterPath])
+    throw error
+      ? new Error(error.message)
+      : new Error('This request can no longer be edited. Refresh the page and try again.')
+  }
+
+  // Only drop the replaced poster once the new one is saved.
+  if (poster) await removePosters([event.poster_path])
+}
+
+// ---------------------------------------------------------------------------
+// Storage
+// ---------------------------------------------------------------------------
+
+async function uploadPoster(organizationId: string, eventId: string, file: File): Promise<string> {
+  const extension = file.name.split('.').pop()?.toLowerCase() ?? 'png'
+  // A new name each time, so browsers don't keep showing a cached old poster.
+  const path = `${organizationId}/${eventId}/${crypto.randomUUID()}.${extension}`
+  const { error } = await supabase.storage.from(EVENT_BUCKET).upload(path, file, { contentType: file.type })
+
+  if (error) throw new Error(`Could not upload “${file.name}”: ${error.message}`)
+  return path
+}
+
+async function removePosters(paths: (string | null)[]) {
+  const existing = paths.filter((path): path is string => !!path && !path.startsWith('blob:'))
+  if (existing.length === 0) return
+  // A leftover file is harmless, so a failed cleanup shouldn't block the user.
+  await supabase.storage.from(EVENT_BUCKET).remove(existing)
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function clean(input: EventInput) {
+  return {
+    title: input.title.trim(),
+    description: input.description.trim(),
+    venue: input.venue.trim(),
+    starts_at: input.starts_at,
+    ends_at: input.ends_at,
+    audience: input.audience,
+    // The database only accepts colleges when the audience is 'colleges'.
+    audience_colleges: input.audience === 'colleges' ? input.audience_colleges : [],
+    registration_url: input.registration_url.trim() || null,
+  }
+}
 
 function findReviewable(id: string, allowed: EventStatus[]): OrgEvent {
   const event = findSample(id)

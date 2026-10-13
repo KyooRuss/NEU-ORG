@@ -347,14 +347,22 @@ function FormText({
 
 // Every comment sent to the officers, oldest first, so the admin can check what was fixed.
 // The officer's event form shows it too, as the list of what to fix.
-export function CommentHistory({ comments, error }: { comments: EventComment[] | null; error: string | null }) {
+export function CommentHistory({
+  comments,
+  error,
+  className = 'mt-6',
+}: {
+  comments: EventComment[] | null
+  error: string | null
+  className?: string
+}) {
   if (error) {
-    return <p className="mt-6 text-sm text-red-700">Could not load the revision comments: {error}</p>
+    return <p className={`${className} text-sm text-red-700`}>Could not load the revision comments: {error}</p>
   }
   if (!comments || comments.length === 0) return null
 
   return (
-    <section className="mt-6">
+    <section className={className}>
       <h4 className="text-xs font-medium tracking-wide text-zinc-500 uppercase">Revision comments</h4>
       <ol className="mt-2 grid gap-2">
         {comments.map((comment) => (

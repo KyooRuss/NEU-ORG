@@ -1,4 +1,4 @@
-import { CalendarDays, Clock, ImageOff, MapPin } from 'lucide-react'
+import { CalendarDays, Clock, ImageOff, Link as LinkIcon, MapPin, Users } from 'lucide-react'
 import { type FormEvent, type ReactNode, useEffect, useState } from 'react'
 
 import {
@@ -9,6 +9,7 @@ import {
   type EventSection,
   type EventStatus,
   fetchEventComments,
+  formatAudience,
   formatDay,
   formatEventDate,
   isResubmitted,
@@ -36,14 +37,20 @@ const commentDate = new Intl.DateTimeFormat('en-PH', { dateStyle: 'medium', time
 
 // Shows one event in full. Pending requests get Approve, Request Revision and
 // Decline; requests in revision can still be declined; the rest are view only.
+// With readOnly (the officer's side) there are no review buttons; a request in
+// revision gets Edit and Resubmit instead, when onEdit is given.
 export default function EventReviewModal({
   event,
+  readOnly = false,
   onClose,
   onReviewed,
+  onEdit,
 }: {
   event: OrgEvent
+  readOnly?: boolean
   onClose: () => void
   onReviewed: () => void
+  onEdit?: () => void
 }) {
   const [mode, setMode] = useState<Mode>('view')
   const [comments, setComments] = useState<EventComment[] | null>(null)
@@ -70,6 +77,8 @@ export default function EventReviewModal({
 
   const poster = posterUrl(event.poster_path)
   const status = STATUS_LABELS[event.status]
+  // Officers see a pending request as waiting on the admin.
+  const statusLabel = readOnly && event.status === 'pending' ? 'Waiting for approval' : status.label
 
   function switchMode(next: Mode) {
     setMode(next)
@@ -129,8 +138,18 @@ export default function EventReviewModal({
     </button>
   )
 
-  const footer =
-    mode === 'approve' ? (
+  const footer = readOnly ? (
+    event.status === 'revision' && onEdit ? (
+      <>
+        {close}
+        <button type="button" onClick={onEdit} className={primaryButton}>
+          Edit and Resubmit
+        </button>
+      </>
+    ) : (
+      close
+    )
+  ) : mode === 'approve' ? (
       <>
         {back}
         {submit('Approve and Post', primaryButton)}
@@ -184,7 +203,7 @@ export default function EventReviewModal({
         {/* Details */}
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className={`rounded-full px-2.5 py-0.5 font-medium ${status.className}`}>{status.label}</span>
+            <span className={`rounded-full px-2.5 py-0.5 font-medium ${status.className}`}>{statusLabel}</span>
             {isResubmitted(event) && <ResubmittedTag />}
           </div>
           <h3 className="mt-2 text-xl font-semibold text-brand-navy">{event.title}</h3>
@@ -193,6 +212,19 @@ export default function EventReviewModal({
           <ul className="mt-4 grid gap-2 text-sm text-zinc-800">
             <IconLine icon={CalendarDays}>{formatEventDate(event)}</IconLine>
             <IconLine icon={MapPin}>{event.venue}</IconLine>
+            <IconLine icon={Users}>{formatAudience(event)}</IconLine>
+            {event.registration_url && (
+              <IconLine icon={LinkIcon}>
+                <a
+                  href={event.registration_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="break-all text-brand-blue underline"
+                >
+                  {event.registration_url}
+                </a>
+              </IconLine>
+            )}
             <IconLine icon={Clock}>
               Submitted {formatDay(event.submitted_at)}
               {event.approved_at && ` · Approved ${formatDay(event.approved_at)}`}
@@ -314,7 +346,8 @@ function FormText({
 }
 
 // Every comment sent to the officers, oldest first, so the admin can check what was fixed.
-function CommentHistory({ comments, error }: { comments: EventComment[] | null; error: string | null }) {
+// The officer's event form shows it too, as the list of what to fix.
+export function CommentHistory({ comments, error }: { comments: EventComment[] | null; error: string | null }) {
   if (error) {
     return <p className="mt-6 text-sm text-red-700">Could not load the revision comments: {error}</p>
   }

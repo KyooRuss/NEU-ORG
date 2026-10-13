@@ -50,7 +50,7 @@ export default function EventFormPage({
   const [description, setDescription] = useState(event?.description ?? '')
   const [venue, setVenue] = useState(event?.venue ?? '')
   const [startsAt, setStartsAt] = useState(event ? toLocalInput(event.starts_at) : '')
-  const [endsAt, setEndsAt] = useState(event ? toLocalInput(event.ends_at) : '')
+  const [endsAt, setEndsAt] = useState(event?.ends_at ? toLocalInput(event.ends_at) : '')
   const [audience, setAudience] = useState<EventAudience>(event?.audience ?? 'everyone')
   const [colleges, setColleges] = useState<string[]>(event?.audience_colleges ?? [])
   const [registrationUrl, setRegistrationUrl] = useState(event?.registration_url ?? '')
@@ -109,8 +109,10 @@ export default function EventFormPage({
     if (!title.trim()) return 'Enter the event title.'
     if (!description.trim()) return 'Write a description of the event.'
     if (!venue.trim()) return 'Enter the venue.'
-    if (!startsAt || !endsAt) return 'Choose when the event starts and ends.'
-    if (new Date(endsAt) < new Date(startsAt)) return 'The event can’t end before it starts.'
+    if (!startsAt) return 'Choose when the event starts.'
+    if (endsAt && new Date(endsAt) < new Date(startsAt)) {
+      return 'The end is earlier than the start. Check the date and AM/PM: 12:00 AM is midnight, 12:00 PM is noon.'
+    }
     if (!event && new Date(startsAt) <= new Date()) return 'The event must start in the future.'
     if (audience === 'colleges' && colleges.length === 0) {
       return 'Tick at least one college, or choose another option for who can join.'
@@ -133,7 +135,7 @@ export default function EventFormPage({
       description,
       venue,
       starts_at: new Date(startsAt).toISOString(),
-      ends_at: new Date(endsAt).toISOString(),
+      ends_at: endsAt ? new Date(endsAt).toISOString() : null,
       audience,
       audience_colleges: colleges,
       registration_url: registrationUrl,
@@ -258,7 +260,7 @@ export default function EventFormPage({
                   />
                 </label>
                 <label className={labelClass}>
-                  Ends <Required />
+                  Ends <span className="font-normal text-zinc-500">(optional)</span>
                   <input
                     type="datetime-local"
                     value={endsAt}
@@ -266,6 +268,9 @@ export default function EventFormPage({
                     onChange={(change) => setEndsAt(change.target.value)}
                     className={fieldClass}
                   />
+                  <span className="mt-1 block text-xs font-normal text-zinc-500">
+                    Leave it empty if you don’t know yet when it ends.
+                  </span>
                 </label>
               </div>
             </div>

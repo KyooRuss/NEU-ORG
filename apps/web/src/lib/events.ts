@@ -29,7 +29,8 @@ export type OrgEvent = {
   description: string
   venue: string
   starts_at: string
-  ends_at: string
+  // Null when the officers don't know yet when it will end.
+  ends_at: string | null
   // Path inside the "event-media" storage bucket.
   poster_path: string | null
   audience: EventAudience
@@ -52,7 +53,8 @@ export type EventInput = {
   description: string
   venue: string
   starts_at: string
-  ends_at: string
+  // Null when the end time isn't known.
+  ends_at: string | null
   audience: EventAudience
   audience_colleges: string[]
   // Empty when there's no sign-up form.
@@ -84,8 +86,10 @@ const dayFormat = new Intl.DateTimeFormat('en-PH', { dateStyle: 'medium' })
 const timeFormat = new Intl.DateTimeFormat('en-PH', { timeStyle: 'short' })
 
 // "Oct 21, 2026 · 9:00 AM – 4:00 PM", or both dates when it spans several days.
+// With no end time: "Oct 21, 2026 · 9:00 AM onwards".
 export function formatEventDate(event: Pick<OrgEvent, 'starts_at' | 'ends_at'>) {
   const start = new Date(event.starts_at)
+  if (!event.ends_at) return `${dayFormat.format(start)} · ${timeFormat.format(start)} onwards`
   const end = new Date(event.ends_at)
   if (start.toDateString() === end.toDateString()) {
     return `${dayFormat.format(start)} · ${timeFormat.format(start)} – ${timeFormat.format(end)}`
@@ -96,14 +100,35 @@ export function formatEventDate(event: Pick<OrgEvent, 'starts_at' | 'ends_at'>) 
 // "Oct 21, 2026", or "Oct 21, 2026 – Oct 23, 2026" when it spans several days.
 export function formatEventDay(event: Pick<OrgEvent, 'starts_at' | 'ends_at'>) {
   const start = new Date(event.starts_at)
-  const end = new Date(event.ends_at)
+  const end = event.ends_at ? new Date(event.ends_at) : start
   if (start.toDateString() === end.toDateString()) return dayFormat.format(start)
   return `${dayFormat.format(start)} – ${dayFormat.format(end)}`
 }
 
-// "9:00 AM – 4:00 PM"
+// "9:00 AM – 4:00 PM", or "9:00 AM onwards" with no end time.
 export function formatEventTime(event: Pick<OrgEvent, 'starts_at' | 'ends_at'>) {
-  return `${timeFormat.format(new Date(event.starts_at))} – ${timeFormat.format(new Date(event.ends_at))}`
+  const start = timeFormat.format(new Date(event.starts_at))
+  return event.ends_at ? `${start} – ${timeFormat.format(new Date(event.ends_at))}` : `${start} onwards`
+}
+
+// An event is upcoming until it ends. One with no end time stays upcoming for
+// the whole day it starts on.
+function startOfToday() {
+  const date = new Date()
+  date.setHours(0, 0, 0, 0)
+  return date.toISOString()
+}
+
+function isUpcoming(event: Pick<OrgEvent, 'starts_at' | 'ends_at'>) {
+  return event.ends_at ? event.ends_at >= new Date().toISOString() : event.starts_at >= startOfToday()
+}
+
+// The same rule as isUpcoming, as a Supabase "or" filter.
+function timingFilter(timing: EventTiming) {
+  const now = new Date().toISOString()
+  return timing === 'upcoming'
+    ? `ends_at.gte.${now},and(ends_at.is.null,starts_at.gte.${startOfToday()})`
+    : `ends_at.lt.${now},and(ends_at.is.null,starts_at.lt.${startOfToday()})`
 }
 
 export function formatDay(iso: string) {
@@ -286,14 +311,13 @@ export async function fetchEventRequests(tab: RequestTab): Promise<OrgEvent[]> {
 // Pass organizationIds to keep only those organizations' events (the officer dashboard).
 export async function fetchApprovedEvents(timing: EventTiming, organizationIds?: string[]): Promise<OrgEvent[]> {
   if (organizationIds?.length === 0) return []
-  const now = new Date().toISOString()
 
   if (!sampleStore) {
     let query = supabase.from('events').select(EVENT_COLUMNS).eq('status', 'approved')
     if (organizationIds) query = query.in('organization_id', organizationIds)
-    const { data, error } = await (timing === 'upcoming'
-      ? query.gte('ends_at', now).order('starts_at', { ascending: true })
-      : query.lt('ends_at', now).order('starts_at', { ascending: false }))
+    const { data, error } = await query
+      .or(timingFilter(timing))
+      .order('starts_at', { ascending: timing === 'upcoming' })
 
     if (!error) return (data as EventRow[]).map(fromRow)
     await ensureSampleStore(error)
@@ -303,7 +327,7 @@ export async function fetchApprovedEvents(timing: EventTiming, organizationIds?:
     .filter(
       (event) =>
         event.status === 'approved' &&
-        (timing === 'upcoming' ? event.ends_at >= now : event.ends_at < now) &&
+        isUpcoming(event) === (timing === 'upcoming') &&
         (!organizationIds || organizationIds.includes(event.organization_id)),
     )
     .sort((a, b) =>
@@ -370,20 +394,18 @@ export async function countPendingEvents(): Promise<number> {
 
 // For the dashboard card: approved events that haven't ended, same as the Upcoming Events page.
 export async function countUpcomingEvents(): Promise<number> {
-  const now = new Date().toISOString()
-
   if (!sampleStore) {
     const { count, error } = await supabase
       .from('events')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'approved')
-      .gte('ends_at', now)
+      .or(timingFilter('upcoming'))
 
     if (!error) return count ?? 0
     await ensureSampleStore(error)
   }
 
-  return sampleStore!.filter((event) => event.status === 'approved' && event.ends_at >= now).length
+  return sampleStore!.filter((event) => event.status === 'approved' && isUpcoming(event)).length
 }
 
 // For the dashboard's "Recently Added Events": approved since the 1st of this month, newest first.

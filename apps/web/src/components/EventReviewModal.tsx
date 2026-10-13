@@ -7,7 +7,6 @@ import {
   EVENT_SECTIONS,
   type EventComment,
   type EventSection,
-  type EventStatus,
   fetchEventComments,
   formatAudience,
   formatDay,
@@ -17,18 +16,11 @@ import {
   posterUrl,
   requestRevision,
 } from '../lib/events'
-import { ResubmittedTag } from './EventTable'
+import { ResubmittedTag, StatusTag } from './EventTable'
 import Modal, { dangerButton, primaryButton, secondaryButton } from './Modal'
 
 // "view" shows the request. The others open the form for that action below it.
 type Mode = 'view' | 'approve' | 'revision' | 'decline'
-
-const STATUS_LABELS: Record<EventStatus, { label: string; className: string }> = {
-  pending: { label: 'Pending', className: 'bg-brand-blue/10 text-brand-blue' },
-  revision: { label: 'For Revision', className: 'bg-amber-50 text-amber-700' },
-  approved: { label: 'Approved', className: 'bg-emerald-50 text-emerald-700' },
-  declined: { label: 'Declined', className: 'bg-red-50 text-red-700' },
-}
 
 const sectionLabel = (value: EventSection) =>
   EVENT_SECTIONS.find((section) => section.value === value)?.label ?? value
@@ -76,9 +68,6 @@ export default function EventReviewModal({
   }, [event.id])
 
   const poster = posterUrl(event.poster_path)
-  const status = STATUS_LABELS[event.status]
-  // Officers see a pending request as waiting on the admin.
-  const statusLabel = readOnly && event.status === 'pending' ? 'Waiting for approval' : status.label
 
   function switchMode(next: Mode) {
     setMode(next)
@@ -203,7 +192,7 @@ export default function EventReviewModal({
         {/* Details */}
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className={`rounded-full px-2.5 py-0.5 font-medium ${status.className}`}>{statusLabel}</span>
+            <StatusTag status={event.status} officer={readOnly} />
             {isResubmitted(event) && <ResubmittedTag />}
           </div>
           <h3 className="mt-2 text-xl font-semibold text-brand-navy">{event.title}</h3>

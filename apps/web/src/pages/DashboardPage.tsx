@@ -21,13 +21,15 @@ import MemorandumPanel from '../components/MemorandumPanel'
 import OrganizationsOverview from '../components/OrganizationsOverview'
 import { RecentEvents, RecentOrganizations } from '../components/RecentlyAdded'
 import UpcomingEvents from '../components/UpcomingEvents'
-import { countPendingEvents, countUpcomingEvents } from '../lib/events'
+import { countMyPendingEvents, countPendingEvents, countUpcomingEvents } from '../lib/events'
+import { fetchMyOrganizationIds } from '../lib/officers'
 import { fetchOrganizations } from '../lib/organizations'
 import type { Profile } from '../lib/profile'
 import { supabase } from '../lib/supabase'
 import AddOrganizationPage from './AddOrganizationPage'
 import AdminOfficersPage from './AdminOfficersPage'
 import ApprovedEventsPage from './ApprovedEventsPage'
+import EventPostsPage from './EventPostsPage'
 import EventRequestsPage from './EventRequestsPage'
 import MyOrganizationPage from './MyOrganizationPage'
 import ProfessorsPage from './ProfessorsPage'
@@ -81,7 +83,7 @@ const officerNav: NavItem[] = [
 ]
 
 // The officer pages that exist so far (besides Dashboard).
-const officerPages = ['My Organization']
+const officerPages = ['My Organization', 'Event Posts']
 
 const adminStats: StatCard[] = [
   { key: 'organizations', label: 'Organizations', hint: 'Verified Main Campus Orgs', icon: Users },
@@ -179,6 +181,21 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
       cancelled = true
     }
   }, [isAdmin, page, badgeKey])
+
+  // The officer's cards. Only the event posts count exists so far; the rest show "—".
+  useEffect(() => {
+    if (isAdmin || page !== 'Dashboard') return
+    let cancelled = false
+    fetchMyOrganizationIds(profile.id)
+      .then(countMyPendingEvents)
+      .then((eventPosts) => {
+        if (!cancelled) setCounts({ eventPosts })
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [isAdmin, page, profile.id])
 
   return (
     <div className="flex min-h-screen flex-col bg-surface md:flex-row">
@@ -385,6 +402,8 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
           />
         ) : page === 'My Organization' ? (
           <MyOrganizationPage profileId={profile.id} />
+        ) : page === 'Event Posts' ? (
+          <EventPostsPage profileId={profile.id} />
         ) : (
           <>
             <section className="rounded-2xl bg-linear-to-r from-brand-navy to-[#2f45c8] px-6 py-8 text-white shadow-lg sm:px-12">

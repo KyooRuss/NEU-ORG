@@ -245,7 +245,7 @@ function EventHighlights({ organizationId }: { organizationId: string }) {
           })}
         </ul>
       )}
-      {viewing && <EventReviewModal event={viewing} onClose={() => setViewing(null)} onReviewed={() => {}} />}
+      {viewing && <EventReviewModal event={viewing} readOnly onClose={() => setViewing(null)} onReviewed={() => {}} />}
     </section>
   )
 }

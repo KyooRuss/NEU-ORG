@@ -59,7 +59,7 @@ export default function UpcomingEvents({ profileId }: { profileId: string }) {
           />
         )
       })}
-      {viewing && <EventReviewModal event={viewing} onClose={() => setViewing(null)} onReviewed={() => {}} />}
+      {viewing && <EventReviewModal event={viewing} readOnly onClose={() => setViewing(null)} onReviewed={() => {}} />}
     </RecentPanel>
   )
 }

@@ -25,6 +25,7 @@ import { countMyPendingEvents, countPendingEvents, countUpcomingEvents } from '.
 import { fetchMyOrganizationIds } from '../lib/officers'
 import { fetchOrganizations } from '../lib/organizations'
 import type { Profile } from '../lib/profile'
+import { countMyPendingApplications } from '../lib/recruitment'
 import { supabase } from '../lib/supabase'
 import AddOrganizationPage from './AddOrganizationPage'
 import AdminOfficersPage from './AdminOfficersPage'
@@ -183,14 +184,19 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
     }
   }, [isAdmin, page, badgeKey])
 
-  // The officer's cards. Only the event posts count exists so far; the rest show "—".
+  // The officer's cards. Only the event posts and applications counts exist so far; the rest show "—".
   useEffect(() => {
     if (isAdmin || page !== 'Dashboard') return
     let cancelled = false
     fetchMyOrganizationIds(profile.id)
-      .then(countMyPendingEvents)
-      .then((eventPosts) => {
-        if (!cancelled) setCounts({ eventPosts })
+      .then((ids) =>
+        Promise.all([
+          countMyPendingEvents(ids).catch(() => null),
+          countMyPendingApplications(ids).catch(() => null),
+        ]),
+      )
+      .then(([eventPosts, applications]) => {
+        if (!cancelled) setCounts({ eventPosts, applications })
       })
       .catch(() => {})
     return () => {

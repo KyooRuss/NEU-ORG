@@ -137,6 +137,24 @@ export async function fetchPendingApplications(organizationId: string): Promise<
   return [...sampleApplications(organizationId)]
 }
 
+// For the officer dashboard card: pending applications across the officer's organizations.
+export async function countMyPendingApplications(organizationIds: string[]): Promise<number> {
+  if (organizationIds.length === 0) return 0
+
+  if (!sampleStore) {
+    const { count, error } = await supabase
+      .from('membership_applications')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'pending')
+      .in('organization_id', organizationIds)
+
+    if (!error) return count ?? 0
+    if (!isMissingTable(error)) throw new Error(error.message)
+  }
+
+  return organizationIds.reduce((total, id) => total + sampleApplications(id).length, 0)
+}
+
 // Marks the application accepted and adds the student as a member.
 export async function acceptApplication(id: string) {
   await decide('accept_application', id)

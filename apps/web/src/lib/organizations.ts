@@ -25,6 +25,8 @@ export type Organization = {
   logo_path: string | null
   photo_paths: string[]
   status: OrgStatus
+  // Whether students can apply to join. Missing until the recruitment migration is in Supabase.
+  recruitment_open?: boolean
   archived_at: string | null
   created_at: string
   updated_at: string

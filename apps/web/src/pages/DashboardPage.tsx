@@ -25,6 +25,7 @@ import { countMyPendingEvents, countPendingEvents, countUpcomingEvents } from '.
 import { fetchMyOrganizationIds } from '../lib/officers'
 import { fetchOrganizations } from '../lib/organizations'
 import type { Profile } from '../lib/profile'
+import { countMyPendingApplications } from '../lib/recruitment'
 import { supabase } from '../lib/supabase'
 import AddOrganizationPage from './AddOrganizationPage'
 import AdminOfficersPage from './AdminOfficersPage'
@@ -33,6 +34,7 @@ import EventPostsPage from './EventPostsPage'
 import EventRequestsPage from './EventRequestsPage'
 import MyOrganizationPage from './MyOrganizationPage'
 import ProfessorsPage from './ProfessorsPage'
+import RecruitmentPage from './RecruitmentPage'
 import StudentsPage from './StudentsPage'
 import TrashPage, { type TrashKind } from './TrashPage'
 
@@ -77,13 +79,13 @@ const officerNav: NavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard },
   { label: 'My Organization', icon: Building2 },
   { label: 'Event Posts', icon: CalendarDays },
-  { label: 'Applications', icon: UserCheck },
+  { label: 'Recruitment', icon: UserCheck },
   { label: 'Announcements', icon: Megaphone },
   { label: 'Feedback', icon: MessageSquareText },
 ]
 
 // The officer pages that exist so far (besides Dashboard).
-const officerPages = ['My Organization', 'Event Posts']
+const officerPages = ['My Organization', 'Event Posts', 'Recruitment']
 
 const adminStats: StatCard[] = [
   { key: 'organizations', label: 'Organizations', hint: 'Verified Main Campus Orgs', icon: Users },
@@ -182,14 +184,19 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
     }
   }, [isAdmin, page, badgeKey])
 
-  // The officer's cards. Only the event posts count exists so far; the rest show "—".
+  // The officer's cards. Only the event posts and applications counts exist so far; the rest show "—".
   useEffect(() => {
     if (isAdmin || page !== 'Dashboard') return
     let cancelled = false
     fetchMyOrganizationIds(profile.id)
-      .then(countMyPendingEvents)
-      .then((eventPosts) => {
-        if (!cancelled) setCounts({ eventPosts })
+      .then((ids) =>
+        Promise.all([
+          countMyPendingEvents(ids).catch(() => null),
+          countMyPendingApplications(ids).catch(() => null),
+        ]),
+      )
+      .then(([eventPosts, applications]) => {
+        if (!cancelled) setCounts({ eventPosts, applications })
       })
       .catch(() => {})
     return () => {
@@ -404,6 +411,8 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
           <MyOrganizationPage profileId={profile.id} />
         ) : page === 'Event Posts' ? (
           <EventPostsPage profileId={profile.id} />
+        ) : page === 'Recruitment' ? (
+          <RecruitmentPage profileId={profile.id} />
         ) : (
           <>
             <section className="rounded-2xl bg-linear-to-r from-brand-navy to-[#2f45c8] px-6 py-8 text-white shadow-lg sm:px-12">

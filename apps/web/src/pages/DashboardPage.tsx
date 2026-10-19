@@ -33,6 +33,7 @@ import EventPostsPage from './EventPostsPage'
 import EventRequestsPage from './EventRequestsPage'
 import MyOrganizationPage from './MyOrganizationPage'
 import ProfessorsPage from './ProfessorsPage'
+import RecruitmentPage from './RecruitmentPage'
 import StudentsPage from './StudentsPage'
 import TrashPage, { type TrashKind } from './TrashPage'
 
@@ -77,13 +78,13 @@ const officerNav: NavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard },
   { label: 'My Organization', icon: Building2 },
   { label: 'Event Posts', icon: CalendarDays },
-  { label: 'Applications', icon: UserCheck },
+  { label: 'Recruitment', icon: UserCheck },
   { label: 'Announcements', icon: Megaphone },
   { label: 'Feedback', icon: MessageSquareText },
 ]
 
 // The officer pages that exist so far (besides Dashboard).
-const officerPages = ['My Organization', 'Event Posts']
+const officerPages = ['My Organization', 'Event Posts', 'Recruitment']
 
 const adminStats: StatCard[] = [
   { key: 'organizations', label: 'Organizations', hint: 'Verified Main Campus Orgs', icon: Users },
@@ -404,6 +405,8 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
           <MyOrganizationPage profileId={profile.id} />
         ) : page === 'Event Posts' ? (
           <EventPostsPage profileId={profile.id} />
+        ) : page === 'Recruitment' ? (
+          <RecruitmentPage profileId={profile.id} />
         ) : (
           <>
             <section className="rounded-2xl bg-linear-to-r from-brand-navy to-[#2f45c8] px-6 py-8 text-white shadow-lg sm:px-12">

@@ -415,7 +415,7 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
         ) : page === 'Recruitment' ? (
           <RecruitmentPage profileId={profile.id} />
         ) : page === 'Announcements' ? (
-          <AnnouncementsPage />
+          <AnnouncementsPage profileId={profile.id} />
         ) : (
           <>
             <section className="rounded-2xl bg-linear-to-r from-brand-navy to-[#2f45c8] px-6 py-8 text-white shadow-lg sm:px-12">

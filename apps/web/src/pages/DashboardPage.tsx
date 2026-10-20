@@ -154,9 +154,9 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
     if (collapsed || isPhone()) openPage(item.children![0])
     else setOpenGroup((current) => (current === item.label ? null : item.label))
   }
-  // While a page shows its banner, the bell and profile sit in the banner instead of the header.
+  // While a page shows its banner, the bell sits in the banner instead of the header.
   const [bannerShown, setBannerShown] = useState(false)
-  const bannerUser = useMemo(() => ({ name, role: profile.role, setBannerShown }), [name, profile.role])
+  const bannerUser = useMemo(() => ({ setBannerShown }), [])
   const [counts, setCounts] = useState<Stats>({})
   // Pending event requests, for the badge on the Events menu.
   const [pendingEvents, setPendingEvents] = useState<number | null>(null)
@@ -366,23 +366,15 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
               Log out
             </button>
             {page !== ADD_ORGANIZATION && !bannerShown && (
-              <>
-                {/* Notifications arrive in a later step. */}
-                <button
-                  type="button"
-                  aria-label="Notifications"
-                  title="Notifications"
-                  className="flex size-10 items-center justify-center rounded-full text-brand-navy transition hover:bg-zinc-200/70"
-                >
-                  <Bell size={22} aria-hidden="true" />
-                </button>
-                <span
-                  title={`${name} (${profile.role})`}
-                  className="flex size-10 items-center justify-center rounded-full bg-brand-navy text-sm font-semibold text-white uppercase"
-                >
-                  {name.charAt(0)}
-                </span>
-              </>
+              // Notifications arrive in a later step.
+              <button
+                type="button"
+                aria-label="Notifications"
+                title="Notifications"
+                className="flex size-10 items-center justify-center rounded-full text-brand-navy transition hover:bg-zinc-200/70"
+              >
+                <Bell size={22} aria-hidden="true" />
+              </button>
             )}
           </header>
 

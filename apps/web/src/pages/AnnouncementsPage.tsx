@@ -1,6 +1,7 @@
 import { Megaphone, Plus, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
+import PageBanner from '../components/PageBanner'
 import { fetchMyOrganizationIds } from '../lib/officers'
 import { fetchOrganizationsByIds, type Organization } from '../lib/organizations'
 import AnnouncementFormPage, { ANNOUNCEMENT_AUDIENCES, type Announcement } from './AnnouncementFormPage'
@@ -55,12 +56,12 @@ export default function AnnouncementsPage({ profileId }: { profileId: string }) 
 
   return (
     <>
-      <section className="rounded-2xl bg-linear-to-r from-brand-navy to-[#2f45c8] px-6 py-8 text-white shadow-lg sm:px-12">
+      <PageBanner>
         <h1 className="truncate text-2xl font-bold">Announcement</h1>
         <p className="mt-1 text-sm text-white/90">
           Create and manage announcements for students and organization members.
         </p>
-      </section>
+      </PageBanner>
 
       <div className="mt-6 flex justify-end">
         <button

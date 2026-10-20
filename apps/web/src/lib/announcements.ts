@@ -68,6 +68,30 @@ export async function fetchAnnouncements(organizationId: string): Promise<Announ
   return sampleStore.filter((item) => item.organization_id === organizationId).sort(newestFirst)
 }
 
+// For the officer dashboard: the latest announcements across the officer's organizations.
+export async function fetchRecentAnnouncements(organizationIds: string[], limit = 5): Promise<Announcement[]> {
+  if (organizationIds.length === 0) return []
+
+  if (!sampleStore) {
+    const { data, error } = await supabase
+      .from('announcements')
+      .select(COLUMNS)
+      .in('organization_id', organizationIds)
+      .order('announcement_date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(limit)
+
+    if (!error) return data as Announcement[]
+    if (!isMissingTable(error)) throw new Error(error.message)
+    sampleStore = []
+  }
+
+  return sampleStore
+    .filter((item) => organizationIds.includes(item.organization_id))
+    .sort(newestFirst)
+    .slice(0, limit)
+}
+
 export async function createAnnouncement(organizationId: string, input: AnnouncementInput) {
   if (!sampleStore) {
     // posted_by defaults to the logged-in user.

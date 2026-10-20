@@ -1,5 +1,5 @@
 import { Eye, Megaphone, Pencil, Plus, Trash2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import ConfirmDialog from '../components/ConfirmDialog'
 import Modal, { primaryButton, secondaryButton } from '../components/Modal'
@@ -32,7 +32,14 @@ const audienceLabel = (announcement: Announcement) =>
 
 // The officer's announcements for students and organization members.
 // An officer in several organizations manages the first one's.
-export default function AnnouncementsPage({ profileId }: { profileId: string }) {
+// openId shows that announcement right away, once the list has loaded.
+export default function AnnouncementsPage({
+  profileId,
+  openId = null,
+}: {
+  profileId: string
+  openId?: string | null
+}) {
   const [org, setOrg] = useState<Organization | null | undefined>(undefined)
   const [orgError, setOrgError] = useState<string | null>(null)
   // The form page, when open: creating an announcement, or editing the one given.
@@ -43,6 +50,8 @@ export default function AnnouncementsPage({ profileId }: { profileId: string }) 
   const [sample, setSample] = useState(false)
   const [viewing, setViewing] = useState<Announcement | null>(null)
   const [deleting, setDeleting] = useState<Announcement | null>(null)
+  // openId is shown once, not again after every reload of the list.
+  const openedRef = useRef(false)
 
   useEffect(() => {
     let cancelled = false
@@ -69,6 +78,10 @@ export default function AnnouncementsPage({ profileId }: { profileId: string }) 
         setAnnouncements(loaded)
         setSample(usingSampleAnnouncements())
         setLoadError(null)
+        if (openId && !openedRef.current) {
+          openedRef.current = true
+          setViewing(loaded.find((item) => item.id === openId) ?? null)
+        }
       })
       .catch((caught: Error) => {
         if (!cancelled) setLoadError(caught.message)

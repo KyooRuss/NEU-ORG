@@ -20,6 +20,7 @@ import { useEffect, useMemo, useState } from 'react'
 import MemorandumPanel from '../components/MemorandumPanel'
 import OrganizationsOverview from '../components/OrganizationsOverview'
 import PageBanner, { BannerUserContext } from '../components/PageBanner'
+import RecentAnnouncements from '../components/RecentAnnouncements'
 import { RecentEvents, RecentOrganizations } from '../components/RecentlyAdded'
 import UpcomingEvents from '../components/UpcomingEvents'
 import { countMyPendingEvents, countPendingEvents, countUpcomingEvents } from '../lib/events'
@@ -100,7 +101,6 @@ const officerStats: StatCard[] = [
   { key: 'members', label: 'Members', hint: 'In your organization', icon: Users },
   { key: 'applications', label: 'New applications', hint: 'Waiting for review', icon: UserCheck },
   { key: 'eventPosts', label: 'Event posts', hint: 'Waiting for admin approval', icon: ClipboardCheck },
-  { key: 'rating', label: 'Average rating', hint: 'From event feedback', icon: MessageSquareText },
 ]
 
 // Counts for the admin stat cards. A count that fails to load shows as "—".
@@ -137,9 +137,12 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
   const navPage = page === ADD_ORGANIZATION ? 'Organizations' : page
   // Which submenu is open, by its parent's label.
   const [openGroup, setOpenGroup] = useState<string | null>(null)
+  // The announcement to show when Announcements opens from the Dashboard's Recent Announcements.
+  const [openAnnouncementId, setOpenAnnouncementId] = useState<string | null>(null)
   const openPage = (label: string) => {
     if (label === 'Dashboard' || (isAdmin ? adminPages : officerPages).includes(label)) {
       setPage(label)
+      setOpenAnnouncementId(null)
       window.scrollTo(0, 0)
       // Keep the submenu of the page's group open, so the admin sees where they are.
       setOpenGroup(nav.find((item) => item.children?.includes(label))?.label ?? null)
@@ -415,7 +418,7 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
           ) : page === 'Recruitment' ? (
             <RecruitmentPage profileId={profile.id} />
           ) : page === 'Announcements' ? (
-            <AnnouncementsPage profileId={profile.id} />
+            <AnnouncementsPage profileId={profile.id} openId={openAnnouncementId} />
           ) : (
             <>
               <PageBanner>
@@ -423,7 +426,9 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
                 <h1 className="mt-1 truncate text-2xl font-bold">{name}!</h1>
               </PageBanner>
 
-              <section className="mt-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+              <section
+                className={`mt-8 grid gap-5 sm:grid-cols-2 ${isAdmin ? 'xl:grid-cols-4' : 'lg:grid-cols-3'}`}
+              >
                 {stats.map(({ key, label, hint, icon: Icon }) => (
                   <div key={key} className="rounded-xl bg-white p-6 shadow-md ring-1 ring-zinc-200">
                     <div className="flex items-start justify-between gap-3">
@@ -450,8 +455,15 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
                   </div>
                 </div>
               ) : (
-                <div className="mt-8">
+                <div className="mt-8 grid items-start gap-6 lg:grid-cols-[3fr_2fr]">
                   <UpcomingEvents profileId={profile.id} />
+                  <RecentAnnouncements
+                    profileId={profile.id}
+                    onOpen={(announcement) => {
+                      openPage('Announcements')
+                      setOpenAnnouncementId(announcement.id)
+                    }}
+                  />
                 </div>
               )}
             </>

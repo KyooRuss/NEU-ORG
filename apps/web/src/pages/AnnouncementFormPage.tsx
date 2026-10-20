@@ -2,40 +2,37 @@ import { ArrowLeft } from 'lucide-react'
 import { type FormEvent, useState } from 'react'
 
 import { primaryButton } from '../components/Modal'
-
-export type AnnouncementAudience = 'university' | 'department'
-
-export const ANNOUNCEMENT_AUDIENCES: { value: AnnouncementAudience; label: string }[] = [
-  { value: 'university', label: 'University Wide' },
-  { value: 'department', label: 'Department-only' },
-]
-
-export type Announcement = {
-  id: string
-  date: string
-  title: string
-  description: string
-  audience: AnnouncementAudience
-}
+import {
+  ANNOUNCEMENT_AUDIENCES,
+  type Announcement,
+  type AnnouncementAudience,
+  createAnnouncement,
+  updateAnnouncement,
+} from '../lib/announcements'
+import type { Organization } from '../lib/organizations'
 
 const fieldClass =
   'mt-2 w-full rounded-xl border border-zinc-200 bg-[#f4f7fb] px-4 py-3 text-sm text-zinc-800 outline-none placeholder:text-zinc-500 focus:border-brand-blue/50 focus:ring-2 focus:ring-brand-blue/20'
 const labelClass = 'block font-semibold text-brand-navy'
 
-// Opened from Announcements. It isn't in the sidebar.
+// Opened from Announcements. It isn't in the sidebar. Leave out the announcement
+// to create one; pass one to edit it.
 export default function AnnouncementFormPage({
-  organizationName,
+  organization,
+  announcement,
   onCancel,
-  onPosted,
+  onSaved,
 }: {
-  organizationName: string
+  organization: Pick<Organization, 'id' | 'name'>
+  announcement?: Announcement
   onCancel: () => void
-  onPosted: (announcement: Announcement) => void
+  onSaved: () => void
 }) {
-  const [date, setDate] = useState('')
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [audience, setAudience] = useState<AnnouncementAudience | null>(null)
+  const [date, setDate] = useState(announcement?.announcement_date ?? '')
+  const [title, setTitle] = useState(announcement?.title ?? '')
+  const [description, setDescription] = useState(announcement?.description ?? '')
+  const [audience, setAudience] = useState<AnnouncementAudience | null>(announcement?.audience ?? null)
+  const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // The first thing still wrong with the form, in the order the fields appear.
@@ -47,26 +44,37 @@ export default function AnnouncementFormPage({
     return null
   }
 
-  function handleSubmit(submitEvent: FormEvent) {
+  async function handleSubmit(submitEvent: FormEvent) {
     submitEvent.preventDefault()
     const problem = findProblem()
     if (problem) return setError(problem)
-    onPosted({
-      id: crypto.randomUUID(),
-      date,
+
+    setSaving(true)
+    setError(null)
+    const input = {
+      announcement_date: date,
       title: title.trim(),
       description: description.trim(),
       // findProblem made sure an audience is picked.
       audience: audience!,
-    })
+    }
+    try {
+      if (announcement) await updateAnnouncement(announcement.id, input)
+      else await createAnnouncement(organization.id, input)
+      onSaved()
+    } catch (caught) {
+      setError((caught as Error).message)
+      setSaving(false)
+    }
   }
 
   return (
-    <form noValidate onSubmit={handleSubmit}>
+    <form noValidate onSubmit={(submitEvent) => void handleSubmit(submitEvent)}>
       <div className="mb-6 flex items-center gap-3">
         <button
           type="button"
           onClick={onCancel}
+          disabled={saving}
           aria-label="Back to Announcements"
           title="Back to Announcements"
           className="flex size-9 items-center justify-center rounded-full text-brand-navy transition hover:bg-zinc-200/70"
@@ -74,8 +82,10 @@ export default function AnnouncementFormPage({
           <ArrowLeft size={20} aria-hidden="true" />
         </button>
         <div className="min-w-0">
-          <h1 className="text-xl font-bold text-brand-navy">Create Announcement</h1>
-          <p className="truncate text-sm text-zinc-500">{organizationName}</p>
+          <h1 className="text-xl font-bold text-brand-navy">
+            {announcement ? 'Edit Announcement' : 'Create Announcement'}
+          </h1>
+          <p className="truncate text-sm text-zinc-500">{organization.name}</p>
         </div>
       </div>
 
@@ -138,8 +148,8 @@ export default function AnnouncementFormPage({
                 {error}
               </p>
             )}
-            <button type="submit" className={`${primaryButton} px-5`}>
-              Post Announcement
+            <button type="submit" disabled={saving} className={`${primaryButton} px-5`}>
+              {saving ? 'Saving…' : announcement ? 'Save Changes' : 'Post Announcement'}
             </button>
           </div>
         </div>

@@ -29,6 +29,7 @@ import { countMyPendingApplications } from '../lib/recruitment'
 import { supabase } from '../lib/supabase'
 import AddOrganizationPage from './AddOrganizationPage'
 import AdminOfficersPage from './AdminOfficersPage'
+import AnnouncementsPage from './AnnouncementsPage'
 import ApprovedEventsPage from './ApprovedEventsPage'
 import EventPostsPage from './EventPostsPage'
 import EventRequestsPage from './EventRequestsPage'
@@ -85,7 +86,7 @@ const officerNav: NavItem[] = [
 ]
 
 // The officer pages that exist so far (besides Dashboard).
-const officerPages = ['My Organization', 'Event Posts', 'Recruitment']
+const officerPages = ['My Organization', 'Event Posts', 'Recruitment', 'Announcements']
 
 const adminStats: StatCard[] = [
   { key: 'organizations', label: 'Organizations', hint: 'Verified Main Campus Orgs', icon: Users },
@@ -413,6 +414,8 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
           <EventPostsPage profileId={profile.id} />
         ) : page === 'Recruitment' ? (
           <RecruitmentPage profileId={profile.id} />
+        ) : page === 'Announcements' ? (
+          <AnnouncementsPage />
         ) : (
           <>
             <section className="rounded-2xl bg-linear-to-r from-brand-navy to-[#2f45c8] px-6 py-8 text-white shadow-lg sm:px-12">

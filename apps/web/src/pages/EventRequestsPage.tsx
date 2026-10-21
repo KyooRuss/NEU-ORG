@@ -114,6 +114,7 @@ export default function EventRequestsPage({
           events={shown}
           error={loadError}
           empty={hasFilters(filters) ? 'No requests match your search or filters.' : current.empty}
+          showPoster={false}
           onOpen={setReviewing}
           onRetry={reload}
         />

@@ -63,7 +63,7 @@ export default function FeedbackPage({ profileId }: { profileId: string }) {
           // The light band runs edge to edge across the card, behind the middle of the posters.
           <div className="relative -mx-6 mt-10">
             <div className="absolute inset-x-0 top-1/3 h-[45%] border-y border-zinc-200 bg-[#f4f7fb]" aria-hidden="true" />
-            <ul className="relative flex gap-10 overflow-x-auto px-12 pt-1 pb-4 sm:justify-center-safe">
+            <ul className="relative flex gap-10 overflow-x-auto px-12 pt-1 pb-4">
               {events!.map((event) => {
                 const poster = posterUrl(event.poster_path)
                 return (

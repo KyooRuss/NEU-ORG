@@ -1,12 +1,13 @@
 import { CalendarDays, ImageIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
-import EventReviewModal from '../components/EventReviewModal'
+import FeedbackStatsModal from '../components/FeedbackStatsModal'
 import PageBanner from '../components/PageBanner'
 import { fetchApprovedEvents, type OrgEvent, posterUrl } from '../lib/events'
 import { fetchMyOrganizationIds } from '../lib/officers'
 
 // The officer's Feedback page: the past events of their organizations, as a row of posters.
+// A poster opens the event's feedback ratings.
 export default function FeedbackPage({ profileId }: { profileId: string }) {
   const [events, setEvents] = useState<OrgEvent[] | null>(null)
   // True when the officer holds no active position in any organization.
@@ -71,7 +72,7 @@ export default function FeedbackPage({ profileId }: { profileId: string }) {
                     <button
                       type="button"
                       onClick={() => setViewing(event)}
-                      aria-label={`View ${event.title}`}
+                      aria-label={`View feedback for ${event.title}`}
                       title={event.title}
                       className="flex h-49 w-36 items-center justify-center overflow-hidden rounded-lg bg-zinc-300 text-zinc-400 shadow-lg shadow-zinc-400/60 transition hover:-translate-y-1"
                     >
@@ -89,7 +90,7 @@ export default function FeedbackPage({ profileId }: { profileId: string }) {
         )}
       </section>
 
-      {viewing && <EventReviewModal event={viewing} readOnly onClose={() => setViewing(null)} onReviewed={() => {}} />}
+      {viewing && <FeedbackStatsModal event={viewing} onClose={() => setViewing(null)} />}
     </>
   )
 }

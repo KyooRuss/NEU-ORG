@@ -95,7 +95,7 @@ export default function FeedbackStatsModal({ event, onClose }: { event: OrgEvent
                 key={key}
                 className="flex flex-col items-center justify-center rounded-lg border border-zinc-200 bg-[#f4f7fb] px-3 py-4 text-center"
               >
-                <span className="text-2xl font-bold text-brand-navy">{formatScore(summary?.scores[key], 1)}</span>
+                <span className="text-2xl font-bold text-brand-navy">{formatScore(summary?.scores[key], 1, '%')}</span>
                 <span className="mt-1 text-[11px] text-zinc-500">{label}</span>
               </li>
             ))}
@@ -110,9 +110,9 @@ export default function FeedbackStatsModal({ event, onClose }: { event: OrgEvent
   )
 }
 
-// A score out of 100, or a dash while it's loading or nobody has answered.
-function formatScore(score: number | null | undefined, decimals: number) {
-  return score == null ? '—' : score.toFixed(decimals)
+// A score out of 100, with an optional unit such as "%", or a dash while it's loading or nobody has answered.
+function formatScore(score: number | null | undefined, decimals: number, unit = '') {
+  return score == null ? '—' : `${score.toFixed(decimals)}${unit}`
 }
 
 function EventDetail({ icon: Icon, children }: { icon: typeof MapPin; children: string }) {

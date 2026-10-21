@@ -89,7 +89,7 @@ export default function AnnouncementFormPage({
         </div>
       </div>
 
-      <section className="rounded-2xl bg-white p-6 shadow-md ring-1 ring-zinc-200 sm:p-8">
+      <section className="rounded-2xl bg-white p-6 lg:mx-auto lg:w-3/4 shadow-md ring-1 ring-zinc-200 sm:p-8">
         <div className="grid gap-6">
           <div>
             <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2">

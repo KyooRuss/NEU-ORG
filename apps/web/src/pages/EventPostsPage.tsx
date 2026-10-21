@@ -207,6 +207,7 @@ function EventPostsList({
           empty={current.empty}
           showOrganization={false}
           showStatus
+          centered
           onOpen={setViewing}
           onRetry={() => setReloadKey((key) => key + 1)}
         />

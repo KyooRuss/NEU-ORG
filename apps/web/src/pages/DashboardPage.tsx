@@ -455,7 +455,7 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
                   </div>
                 </div>
               ) : (
-                <div className="mt-8 grid items-start gap-6 lg:grid-cols-[3fr_2fr]">
+                <div className="mt-8 grid gap-6 lg:grid-cols-[3fr_2fr] lg:gap-10">
                   <UpcomingEvents profileId={profile.id} />
                   <RecentAnnouncements
                     profileId={profile.id}

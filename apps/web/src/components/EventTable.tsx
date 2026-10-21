@@ -49,7 +49,7 @@ export default function EventTable({
                 </th>
               </>
             )}
-            <th scope="col" className="px-6 py-3 font-medium">
+            <th scope="col" className="px-6 py-3 text-left font-medium">
               Event Title
             </th>
             <th scope="col" className="px-6 py-3 font-medium">
@@ -81,7 +81,7 @@ export default function EventTable({
                 </>
               )}
               <td className="px-6 py-4">
-                <EventNameCell event={event} centered={centered} />
+                <EventNameCell event={event} />
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-zinc-700">{formatEventDay(event)}</td>
               <td className="px-6 py-4 whitespace-nowrap text-zinc-700">{formatEventTime(event)}</td>
@@ -122,11 +122,11 @@ export default function EventTable({
   )
 }
 
-// The poster thumbnail and title. The organization has its own column now.
-function EventNameCell({ event, centered }: { event: OrgEvent; centered: boolean }) {
+// The poster thumbnail and title, always left-aligned. The organization has its own column now.
+function EventNameCell({ event }: { event: OrgEvent }) {
   const poster = posterUrl(event.poster_path)
   return (
-    <div className={`flex items-center gap-3 ${centered ? 'justify-center' : ''}`}>
+    <div className="flex items-center gap-3">
       <span className="flex h-12 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-brand-blue/10 text-brand-blue">
         {poster ? (
           <img src={poster} alt="" className="size-full object-cover" />

@@ -1,7 +1,7 @@
-import { ChevronRight } from 'lucide-react'
+import { CalendarDays, ChevronRight, type LucideIcon, Users } from 'lucide-react'
 import { type ReactNode, useEffect, useState } from 'react'
 
-import { fetchEventsApprovedThisMonth, formatEventDate, type OrgEvent, posterUrl } from '../lib/events'
+import { fetchEventsApprovedThisMonth, formatEventDay, formatEventTime, type OrgEvent, posterUrl } from '../lib/events'
 import { fetchOrganizations, mediaUrl, type Organization } from '../lib/organizations'
 import EventReviewModal from './EventReviewModal'
 import OrganizationDetailsModal from './OrganizationDetailsModal'
@@ -40,6 +40,7 @@ export function RecentOrganizations() {
   return (
     <RecentPanel
       title="Recently Added Organizations"
+      icon={Users}
       status={
         error
           ? `Could not load organizations: ${error}`
@@ -91,6 +92,7 @@ export function RecentEvents() {
   return (
     <RecentPanel
       title="Recently Added Events"
+      icon={CalendarDays}
       status={
         error
           ? `Could not load events: ${error}`
@@ -110,7 +112,7 @@ export function RecentEvents() {
             onClick={() => setViewing(event)}
             avatar={poster ? <img src={poster} alt="" className="size-full object-cover" /> : null}
             title={event.title}
-            subtitle={`${event.organization_name} • ${formatEventDate(event)}`}
+            subtitle={`${event.organization_name} • ${formatEventDay(event)} • ${formatEventTime(event)}`}
           />
         )
       })}
@@ -119,22 +121,29 @@ export function RecentEvents() {
   )
 }
 
+// A white card with an icon and title, holding RecentRows.
 export function RecentPanel({
   title,
+  icon: Icon,
   status,
   children,
 }: {
   title: string
+  icon: LucideIcon
   status: string | null
   children: ReactNode
 }) {
   return (
-    <section>
-      <h2 className="rounded-lg bg-[#e8eefc] px-4 py-2.5 text-sm font-semibold text-brand-navy shadow-md ring-1 ring-zinc-300">
+    <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-md">
+      <h2 className="flex items-center gap-2.5 text-base font-semibold text-[#3b4a7a]">
+        <Icon size={18} className="shrink-0 text-brand-navy" aria-hidden="true" />
         {title}
       </h2>
-      <ul className="mt-2 px-1">{children}</ul>
-      {status && <p className="px-6 py-6 text-center text-sm text-zinc-500">{status}</p>}
+      {status ? (
+        <p className="mt-5 rounded-xl bg-[#f4f7fb] px-6 py-6 text-center text-sm text-zinc-500">{status}</p>
+      ) : (
+        <ul className="mt-5 space-y-3">{children}</ul>
+      )}
     </section>
   )
 }
@@ -153,21 +162,21 @@ export function RecentRow({
   subtitle: ReactNode
 }) {
   return (
-    <li className="border-b border-zinc-300">
+    <li>
       <button
         type="button"
         onClick={onClick}
         aria-label={label}
-        className="flex w-full items-center gap-4 px-4 py-3 text-left transition hover:bg-white/70"
+        className="flex w-full items-center gap-4 rounded-xl bg-[#f4f7fb] py-3 pr-5 pl-4 text-left transition hover:bg-[#e6edfb]"
       >
-        <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-500 text-white">
+        <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-300">
           {avatar}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-semibold text-zinc-900">{title}</span>
-          <span className="block truncate text-[11px] text-zinc-500">{subtitle}</span>
+          <span className="block truncate font-semibold text-zinc-800">{title}</span>
+          <span className="block truncate text-xs text-zinc-500">{subtitle}</span>
         </span>
-        <ChevronRight size={18} className="shrink-0 text-zinc-600" aria-hidden="true" />
+        <ChevronRight size={14} strokeWidth={2.5} className="shrink-0 text-zinc-900" aria-hidden="true" />
       </button>
     </li>
   )

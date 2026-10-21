@@ -18,6 +18,7 @@ export default function EventTable({
   empty,
   showOrganization = true,
   showStatus = false,
+  showPoster = true,
   centered = false,
   onOpen,
   onRetry,
@@ -27,6 +28,8 @@ export default function EventTable({
   empty: string
   showOrganization?: boolean
   showStatus?: boolean
+  // Show the poster thumbnail beside the title.
+  showPoster?: boolean
   // Center every column, titles and contents, not just Action.
   centered?: boolean
   onOpen: (event: OrgEvent) => void
@@ -49,7 +52,7 @@ export default function EventTable({
                 </th>
               </>
             )}
-            <th scope="col" className="px-6 py-3 font-medium">
+            <th scope="col" className="px-6 py-3 text-left font-medium">
               Event Title
             </th>
             <th scope="col" className="px-6 py-3 font-medium">
@@ -81,7 +84,7 @@ export default function EventTable({
                 </>
               )}
               <td className="px-6 py-4">
-                <EventNameCell event={event} centered={centered} />
+                <EventNameCell event={event} showPoster={showPoster} />
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-zinc-700">{formatEventDay(event)}</td>
               <td className="px-6 py-4 whitespace-nowrap text-zinc-700">{formatEventTime(event)}</td>
@@ -122,18 +125,20 @@ export default function EventTable({
   )
 }
 
-// The poster thumbnail and title. The organization has its own column now.
-function EventNameCell({ event, centered }: { event: OrgEvent; centered: boolean }) {
+// The title, after its poster thumbnail when shown, always left-aligned. The organization has its own column now.
+function EventNameCell({ event, showPoster }: { event: OrgEvent; showPoster: boolean }) {
   const poster = posterUrl(event.poster_path)
   return (
-    <div className={`flex items-center gap-3 ${centered ? 'justify-center' : ''}`}>
-      <span className="flex h-12 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-brand-blue/10 text-brand-blue">
-        {poster ? (
-          <img src={poster} alt="" className="size-full object-cover" />
-        ) : (
-          <ImageOff size={16} aria-hidden="true" />
-        )}
-      </span>
+    <div className="flex items-center gap-3">
+      {showPoster && (
+        <span className="flex h-12 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-brand-blue/10 text-brand-blue">
+          {poster ? (
+            <img src={poster} alt="" className="size-full object-cover" />
+          ) : (
+            <ImageOff size={16} aria-hidden="true" />
+          )}
+        </span>
+      )}
       <p className="flex min-w-0 flex-wrap items-center gap-2 font-medium text-brand-navy">
         {event.title}
         {isResubmitted(event) && <ResubmittedTag />}

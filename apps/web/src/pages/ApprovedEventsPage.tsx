@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 
+import EventCard from '../components/EventCard'
 import EventFilters from '../components/EventFilters'
 import EventReviewModal from '../components/EventReviewModal'
 import EventTable, { SampleEventsNotice } from '../components/EventTable'
@@ -19,7 +20,8 @@ const PAGES: Record<EventTiming, { title: string; description: string; empty: st
   },
 }
 
-// Approved events, for viewing. They move from Upcoming to Past on their own once they end.
+// Approved events, for viewing: Upcoming as cards, Past as a table. They move from
+// Upcoming to Past on their own once they end.
 export default function ApprovedEventsPage({ timing }: { timing: EventTiming }) {
   const [events, setEvents] = useState<OrgEvent[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -48,6 +50,7 @@ export default function ApprovedEventsPage({ timing }: { timing: EventTiming }) 
   const { title, description, empty } = PAGES[timing]
   const filtering = hasFilters(filters)
   const shown = events && filterEvents(events, filters)
+  const emptyMessage = filtering ? 'No events match your search or filters.' : empty
 
   return (
     <section className="rounded-xl bg-white shadow-sm ring-1 ring-zinc-200">
@@ -77,13 +80,37 @@ export default function ApprovedEventsPage({ timing }: { timing: EventTiming }) 
         </div>
       )}
 
-      <EventTable
-        events={shown}
-        error={loadError}
-        empty={filtering ? 'No events match your search or filters.' : empty}
-        onOpen={setViewing}
-        onRetry={() => setReloadKey((key) => key + 1)}
-      />
+      {timing === 'past' ? (
+        <EventTable
+          events={shown}
+          error={loadError}
+          empty={emptyMessage}
+          onOpen={setViewing}
+          onRetry={() => setReloadKey((key) => key + 1)}
+        />
+      ) : loadError || !shown || shown.length === 0 ? (
+        <p className="px-6 pt-4 pb-10 text-center text-sm text-zinc-500">
+          {loadError ? (
+            <span className="text-red-700">
+              Could not load events: {loadError}{' '}
+              <button type="button" onClick={() => setReloadKey((key) => key + 1)} className="font-medium underline">
+                Try again
+              </button>
+            </span>
+          ) : !shown ? (
+            'Loading…'
+          ) : (
+            emptyMessage
+          )}
+        </p>
+      ) : (
+        // Upcoming events show as cards, starting at the left.
+        <ul className="flex flex-wrap gap-6 px-6 pt-2 pb-8 sm:px-12">
+          {shown.map((event) => (
+            <EventCard key={event.id} event={event} actionLabel="View Details" onAction={setViewing} />
+          ))}
+        </ul>
+      )}
 
       {/* Approved events are view only, so there's nothing to refresh after closing. */}
       {viewing && <EventReviewModal event={viewing} onClose={() => setViewing(null)} onReviewed={() => {}} />}

@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import EventCard from '../components/EventCard'
 import EventFilters from '../components/EventFilters'
 import EventReviewModal from '../components/EventReviewModal'
-import EventTable, { SampleEventsNotice } from '../components/EventTable'
+import { SampleEventsNotice } from '../components/EventTable'
 import { type EventFilterValues, filterEvents, hasFilters, NO_FILTERS } from '../lib/eventFilters'
 import { type EventTiming, fetchApprovedEvents, type OrgEvent, usingSampleEvents } from '../lib/events'
 
@@ -20,8 +20,7 @@ const PAGES: Record<EventTiming, { title: string; description: string; empty: st
   },
 }
 
-// Approved events, for viewing: Upcoming as cards, Past as a table. They move from
-// Upcoming to Past on their own once they end.
+// Approved events, for viewing, as cards. They move from Upcoming to Past on their own once they end.
 export default function ApprovedEventsPage({ timing }: { timing: EventTiming }) {
   const [events, setEvents] = useState<OrgEvent[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -80,15 +79,7 @@ export default function ApprovedEventsPage({ timing }: { timing: EventTiming }) 
         </div>
       )}
 
-      {timing === 'past' ? (
-        <EventTable
-          events={shown}
-          error={loadError}
-          empty={emptyMessage}
-          onOpen={setViewing}
-          onRetry={() => setReloadKey((key) => key + 1)}
-        />
-      ) : loadError || !shown || shown.length === 0 ? (
+      {loadError || !shown || shown.length === 0 ? (
         <p className="px-6 pt-4 pb-10 text-center text-sm text-zinc-500">
           {loadError ? (
             <span className="text-red-700">
@@ -104,7 +95,7 @@ export default function ApprovedEventsPage({ timing }: { timing: EventTiming }) 
           )}
         </p>
       ) : (
-        // Upcoming events show as cards, starting at the left.
+        // The events show as cards, starting at the left.
         <ul className="flex flex-wrap gap-6 px-6 pt-2 pb-8 sm:px-12">
           {shown.map((event) => (
             <EventCard key={event.id} event={event} actionLabel="View Details" onAction={setViewing} />

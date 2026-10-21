@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import EventReviewModal from '../components/EventReviewModal'
 import EventTable, { SampleEventsNotice } from '../components/EventTable'
 import { primaryButton } from '../components/Modal'
+import PageBanner from '../components/PageBanner'
 import { type EventStatus, fetchMyEvents, type OrgEvent, usingSampleEvents } from '../lib/events'
 import { fetchMyOrganizationIds } from '../lib/officers'
 import { fetchOrganizationsByIds, type Organization } from '../lib/organizations'
@@ -79,10 +80,10 @@ export default function EventPostsPage({ profileId }: { profileId: string }) {
 
   return (
     <>
-      <section className="rounded-2xl bg-linear-to-r from-brand-navy to-[#2f45c8] px-6 py-8 text-white shadow-lg sm:px-12">
+      <PageBanner>
         <h1 className="truncate text-2xl font-bold">Event Posts</h1>
         <p className="mt-1 text-sm text-white/90">Create event requests and follow their approval</p>
-      </section>
+      </PageBanner>
 
       {error ? (
         <p role="alert" className="mt-8 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -206,6 +207,7 @@ function EventPostsList({
           empty={current.empty}
           showOrganization={false}
           showStatus
+          centered
           onOpen={setViewing}
           onRetry={() => setReloadKey((key) => key + 1)}
         />

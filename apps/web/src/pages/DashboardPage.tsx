@@ -15,10 +15,12 @@ import {
   UserRound,
   Users,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import MemorandumPanel from '../components/MemorandumPanel'
 import OrganizationsOverview from '../components/OrganizationsOverview'
+import PageBanner, { BannerUserContext } from '../components/PageBanner'
+import RecentAnnouncements from '../components/RecentAnnouncements'
 import { RecentEvents, RecentOrganizations } from '../components/RecentlyAdded'
 import UpcomingEvents from '../components/UpcomingEvents'
 import { countMyPendingEvents, countPendingEvents, countUpcomingEvents } from '../lib/events'
@@ -29,6 +31,7 @@ import { countMyPendingApplications } from '../lib/recruitment'
 import { supabase } from '../lib/supabase'
 import AddOrganizationPage from './AddOrganizationPage'
 import AdminOfficersPage from './AdminOfficersPage'
+import AnnouncementsPage from './AnnouncementsPage'
 import ApprovedEventsPage from './ApprovedEventsPage'
 import EventPostsPage from './EventPostsPage'
 import EventRequestsPage from './EventRequestsPage'
@@ -85,7 +88,7 @@ const officerNav: NavItem[] = [
 ]
 
 // The officer pages that exist so far (besides Dashboard).
-const officerPages = ['My Organization', 'Event Posts', 'Recruitment']
+const officerPages = ['My Organization', 'Event Posts', 'Recruitment', 'Announcements']
 
 const adminStats: StatCard[] = [
   { key: 'organizations', label: 'Organizations', hint: 'Verified Main Campus Orgs', icon: Users },
@@ -98,7 +101,6 @@ const officerStats: StatCard[] = [
   { key: 'members', label: 'Members', hint: 'In your organization', icon: Users },
   { key: 'applications', label: 'New applications', hint: 'Waiting for review', icon: UserCheck },
   { key: 'eventPosts', label: 'Event posts', hint: 'Waiting for admin approval', icon: ClipboardCheck },
-  { key: 'rating', label: 'Average rating', hint: 'From event feedback', icon: MessageSquareText },
 ]
 
 // Counts for the admin stat cards. A count that fails to load shows as "—".
@@ -135,9 +137,12 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
   const navPage = page === ADD_ORGANIZATION ? 'Organizations' : page
   // Which submenu is open, by its parent's label.
   const [openGroup, setOpenGroup] = useState<string | null>(null)
+  // The announcement to show when Announcements opens from the Dashboard's Recent Announcements.
+  const [openAnnouncementId, setOpenAnnouncementId] = useState<string | null>(null)
   const openPage = (label: string) => {
     if (label === 'Dashboard' || (isAdmin ? adminPages : officerPages).includes(label)) {
       setPage(label)
+      setOpenAnnouncementId(null)
       window.scrollTo(0, 0)
       // Keep the submenu of the page's group open, so the admin sees where they are.
       setOpenGroup(nav.find((item) => item.children?.includes(label))?.label ?? null)
@@ -152,6 +157,9 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
     if (collapsed || isPhone()) openPage(item.children![0])
     else setOpenGroup((current) => (current === item.label ? null : item.label))
   }
+  // While a page shows its banner, the bell sits in the banner instead of the header.
+  const [bannerShown, setBannerShown] = useState(false)
+  const bannerUser = useMemo(() => ({ setBannerShown }), [])
   const [counts, setCounts] = useState<Stats>({})
   // Pending event requests, for the badge on the Events menu.
   const [pendingEvents, setPendingEvents] = useState<number | null>(null)
@@ -342,23 +350,26 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
         </div>
       </aside>
 
-      <main className="min-w-0 flex-1 px-4 py-6 sm:px-8 lg:px-12">
-        {/* Shown above every page except Add Organization, which only keeps the phone log-out button. */}
-        <header
-          className={`mb-6 flex items-center justify-end gap-3 ${page === ADD_ORGANIZATION ? 'md:hidden' : ''}`}
-        >
-          {/* Phones have no sidebar log-out button, so it lives here. */}
-          <button
-            type="button"
-            onClick={() => void supabase.auth.signOut()}
-            className="mr-auto flex items-center gap-2 rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm text-zinc-700 transition hover:bg-zinc-50 md:hidden"
+      <BannerUserContext.Provider value={bannerUser}>
+        <main className="min-w-0 flex-1 px-4 py-6 sm:px-8 lg:px-12">
+          {/* Shown above every page except Add Organization and pages with a banner,
+              which only keep the phone log-out button. */}
+          <header
+            className={`mb-6 flex items-center justify-end gap-3 ${
+              page === ADD_ORGANIZATION || bannerShown ? 'md:hidden' : ''
+            }`}
           >
-            <LogOut size={16} aria-hidden="true" />
-            Log out
-          </button>
-          {page !== ADD_ORGANIZATION && (
-            <>
-              {/* Notifications arrive in a later step. */}
+            {/* Phones have no sidebar log-out button, so it lives here. */}
+            <button
+              type="button"
+              onClick={() => void supabase.auth.signOut()}
+              className="mr-auto flex items-center gap-2 rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm text-zinc-700 transition hover:bg-zinc-50 md:hidden"
+            >
+              <LogOut size={16} aria-hidden="true" />
+              Log out
+            </button>
+            {page !== ADD_ORGANIZATION && !bannerShown && (
+              // Notifications arrive in a later step.
               <button
                 type="button"
                 aria-label="Notifications"
@@ -367,93 +378,98 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
               >
                 <Bell size={22} aria-hidden="true" />
               </button>
-              <span
-                title={`${name} (${profile.role})`}
-                className="flex size-10 items-center justify-center rounded-full bg-brand-navy text-sm font-semibold text-white uppercase"
+            )}
+          </header>
+
+          {EVENT_PAGES.includes(page) ? (
+            <>
+              <PageTabs label="Event pages" pages={EVENT_PAGES} page={page} pendingCount={pendingEvents} onOpen={openPage} />
+              {page === 'Event Requests' ? (
+                <EventRequestsPage
+                  pendingCount={pendingEvents}
+                  onReviewed={() => setBadgeKey((key) => key + 1)}
+                />
+              ) : (
+                <ApprovedEventsPage key={page} timing={page === 'Past Events' ? 'past' : 'upcoming'} />
+              )}
+            </>
+          ) : page === 'Admin Officers' ? (
+            <AdminOfficersPage />
+          ) : page === 'Professors' ? (
+            <ProfessorsPage />
+          ) : page === 'Students' ? (
+            <StudentsPage />
+          ) : TRASH_PAGES.includes(page) ? (
+            <>
+              <PageTabs label="Trash pages" pages={TRASH_PAGES} page={page} onOpen={openPage} />
+              <TrashPage key={page} kind={TRASH_KINDS[page]} />
+            </>
+          ) : page === 'Organizations' ? (
+            <OrganizationsOverview onAdd={() => openPage(ADD_ORGANIZATION)} />
+          ) : page === ADD_ORGANIZATION ? (
+            <AddOrganizationPage
+              onCancel={() => openPage('Organizations')}
+              onSaved={() => openPage('Organizations')}
+            />
+          ) : page === 'My Organization' ? (
+            <MyOrganizationPage profileId={profile.id} />
+          ) : page === 'Event Posts' ? (
+            <EventPostsPage profileId={profile.id} />
+          ) : page === 'Recruitment' ? (
+            <RecruitmentPage profileId={profile.id} />
+          ) : page === 'Announcements' ? (
+            <AnnouncementsPage profileId={profile.id} openId={openAnnouncementId} />
+          ) : (
+            <>
+              <PageBanner>
+                <p className="text-sm text-white/90">Welcome back,</p>
+                <h1 className="mt-1 truncate text-2xl font-bold">{name}!</h1>
+              </PageBanner>
+
+              <section
+                className={`mt-8 grid gap-5 sm:grid-cols-2 ${isAdmin ? 'xl:grid-cols-4' : 'lg:grid-cols-3'}`}
               >
-                {name.charAt(0)}
-              </span>
+                {stats.map(({ key, label, hint, icon: Icon }) => (
+                  <div key={key} className="rounded-xl bg-white p-6 shadow-md ring-1 ring-zinc-200">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="pt-1 text-sm font-semibold text-zinc-900">{label}</p>
+                      <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#dfe6f3] text-brand-navy shadow-sm">
+                        <Icon size={17} aria-hidden="true" />
+                      </span>
+                    </div>
+                    <p className="text-3xl font-bold text-brand-navy">
+                      {counts[key]?.toLocaleString() ?? '—'}
+                    </p>
+                    <p className="mt-2 text-xs text-zinc-600">{hint}</p>
+                  </div>
+                ))}
+              </section>
+
+              {isAdmin ? (
+                <div className="mt-8 grid items-start gap-6 lg:grid-cols-[3fr_2fr]">
+                  <MemorandumPanel />
+
+                  <div className="grid gap-6">
+                    <RecentOrganizations />
+                    <RecentEvents />
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-8 grid gap-6 lg:grid-cols-[3fr_2fr] lg:gap-10">
+                  <UpcomingEvents profileId={profile.id} />
+                  <RecentAnnouncements
+                    profileId={profile.id}
+                    onOpen={(announcement) => {
+                      openPage('Announcements')
+                      setOpenAnnouncementId(announcement.id)
+                    }}
+                  />
+                </div>
+              )}
             </>
           )}
-        </header>
-
-        {EVENT_PAGES.includes(page) ? (
-          <>
-            <PageTabs label="Event pages" pages={EVENT_PAGES} page={page} pendingCount={pendingEvents} onOpen={openPage} />
-            {page === 'Event Requests' ? (
-              <EventRequestsPage
-                pendingCount={pendingEvents}
-                onReviewed={() => setBadgeKey((key) => key + 1)}
-              />
-            ) : (
-              <ApprovedEventsPage key={page} timing={page === 'Past Events' ? 'past' : 'upcoming'} />
-            )}
-          </>
-        ) : page === 'Admin Officers' ? (
-          <AdminOfficersPage />
-        ) : page === 'Professors' ? (
-          <ProfessorsPage />
-        ) : page === 'Students' ? (
-          <StudentsPage />
-        ) : TRASH_PAGES.includes(page) ? (
-          <>
-            <PageTabs label="Trash pages" pages={TRASH_PAGES} page={page} onOpen={openPage} />
-            <TrashPage key={page} kind={TRASH_KINDS[page]} />
-          </>
-        ) : page === 'Organizations' ? (
-          <OrganizationsOverview onAdd={() => openPage(ADD_ORGANIZATION)} />
-        ) : page === ADD_ORGANIZATION ? (
-          <AddOrganizationPage
-            onCancel={() => openPage('Organizations')}
-            onSaved={() => openPage('Organizations')}
-          />
-        ) : page === 'My Organization' ? (
-          <MyOrganizationPage profileId={profile.id} />
-        ) : page === 'Event Posts' ? (
-          <EventPostsPage profileId={profile.id} />
-        ) : page === 'Recruitment' ? (
-          <RecruitmentPage profileId={profile.id} />
-        ) : (
-          <>
-            <section className="rounded-2xl bg-linear-to-r from-brand-navy to-[#2f45c8] px-6 py-8 text-white shadow-lg sm:px-12">
-              <p className="text-sm text-white/90">Welcome back,</p>
-              <h1 className="mt-1 truncate text-2xl font-bold">{name}!</h1>
-            </section>
-
-            <section className="mt-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-              {stats.map(({ key, label, hint, icon: Icon }) => (
-                <div key={key} className="rounded-xl bg-white p-6 shadow-md ring-1 ring-zinc-200">
-                  <div className="flex items-start justify-between gap-3">
-                    <p className="pt-1 text-sm font-semibold text-zinc-900">{label}</p>
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#dfe6f3] text-brand-navy shadow-sm">
-                      <Icon size={17} aria-hidden="true" />
-                    </span>
-                  </div>
-                  <p className="text-3xl font-bold text-brand-navy">
-                    {counts[key]?.toLocaleString() ?? '—'}
-                  </p>
-                  <p className="mt-2 text-xs text-zinc-600">{hint}</p>
-                </div>
-              ))}
-            </section>
-
-            {isAdmin ? (
-              <div className="mt-8 grid items-start gap-6 lg:grid-cols-[3fr_2fr]">
-                <MemorandumPanel />
-
-                <div className="grid gap-6">
-                  <RecentOrganizations />
-                  <RecentEvents />
-                </div>
-              </div>
-            ) : (
-              <div className="mt-8">
-                <UpcomingEvents profileId={profile.id} />
-              </div>
-            )}
-          </>
-        )}
-      </main>
+        </main>
+      </BannerUserContext.Provider>
     </div>
   )
 }

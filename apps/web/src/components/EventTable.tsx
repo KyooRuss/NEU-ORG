@@ -18,6 +18,7 @@ export default function EventTable({
   empty,
   showOrganization = true,
   showStatus = false,
+  centered = false,
   onOpen,
   onRetry,
 }: {
@@ -26,6 +27,8 @@ export default function EventTable({
   empty: string
   showOrganization?: boolean
   showStatus?: boolean
+  // Center every column, titles and contents, not just Action.
+  centered?: boolean
   onOpen: (event: OrgEvent) => void
   onRetry: () => void
 }) {
@@ -33,7 +36,7 @@ export default function EventTable({
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[1000px] text-left text-sm">
+      <table className={`w-full min-w-[1000px] text-sm ${centered ? 'text-center' : 'text-left'}`}>
         <thead className="border-y border-zinc-200 bg-surface text-xs tracking-wide text-zinc-500 uppercase">
           <tr>
             {showOrganization && (
@@ -78,7 +81,7 @@ export default function EventTable({
                 </>
               )}
               <td className="px-6 py-4">
-                <EventNameCell event={event} />
+                <EventNameCell event={event} centered={centered} />
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-zinc-700">{formatEventDay(event)}</td>
               <td className="px-6 py-4 whitespace-nowrap text-zinc-700">{formatEventTime(event)}</td>
@@ -120,10 +123,10 @@ export default function EventTable({
 }
 
 // The poster thumbnail and title. The organization has its own column now.
-function EventNameCell({ event }: { event: OrgEvent }) {
+function EventNameCell({ event, centered }: { event: OrgEvent; centered: boolean }) {
   const poster = posterUrl(event.poster_path)
   return (
-    <div className="flex items-center gap-3">
+    <div className={`flex items-center gap-3 ${centered ? 'justify-center' : ''}`}>
       <span className="flex h-12 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-brand-blue/10 text-brand-blue">
         {poster ? (
           <img src={poster} alt="" className="size-full object-cover" />

@@ -16,7 +16,7 @@ import * as NativeSplash from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 
 import SplashScreen from '@/components/splash-screen';
-import { getInitialSession } from '@/lib/initial-session';
+import { getFirstScreen } from '@/lib/initial-session';
 
 NativeSplash.preventAutoHideAsync();
 
@@ -34,7 +34,7 @@ export default function RootLayout() {
   const [splashDone, setSplashDone] = useState(false);
 
   useEffect(() => {
-    getInitialSession().then(() => setSessionChecked(true));
+    getFirstScreen().then(() => setSessionChecked(true));
   }, []);
 
   // The NEU-ORG splash only renders once the fonts are ready, so its name never shows in

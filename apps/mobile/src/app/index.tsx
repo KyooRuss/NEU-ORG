@@ -1,18 +1,18 @@
 import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
 
-import { getInitialSession } from '@/lib/initial-session';
+import { type FirstScreen, getFirstScreen } from '@/lib/initial-session';
 
-// Opens the home screen when a login session is saved on the phone, otherwise the login screen.
-// The splash screen covers this while the session is read.
+// Opens home when a login session is saved on the phone (or Terms if the student
+// hasn't accepted them yet), otherwise the login screen. The splash screen covers this.
 export default function Index() {
-  const [hasSession, setHasSession] = useState<boolean | null>(null);
+  const [screen, setScreen] = useState<FirstScreen | null>(null);
 
   useEffect(() => {
-    getInitialSession().then((session) => setHasSession(session !== null));
+    getFirstScreen().then(setScreen);
   }, []);
 
-  if (hasSession === null) return null;
+  if (screen === null) return null;
 
-  return <Redirect href={hasSession ? '/home' : '/login'} />;
+  return <Redirect href={screen} />;
 }

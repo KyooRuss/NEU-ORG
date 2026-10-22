@@ -12,13 +12,13 @@ import {
   useFonts,
 } from '@expo-google-fonts/poppins';
 import { Stack } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
+import * as NativeSplash from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 
-import AnimatedSplash from '@/components/animated-splash';
+import SplashScreen from '@/components/splash-screen';
 import { getInitialSession } from '@/lib/initial-session';
 
-SplashScreen.preventAutoHideAsync();
+NativeSplash.preventAutoHideAsync();
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
@@ -37,11 +37,8 @@ export default function RootLayout() {
     getInitialSession().then(() => setSessionChecked(true));
   }, []);
 
-  // Swap the native splash for the animated one once the fonts are ready, so text doesn't flash.
-  useEffect(() => {
-    if (fontsReady) SplashScreen.hide();
-  }, [fontsReady]);
-
+  // The NEU-ORG splash only renders once the fonts are ready, so its name never shows in
+  // the wrong font. It hides the phone's native splash once its logo is on screen.
   if (!fontsReady) {
     return null;
   }
@@ -50,7 +47,11 @@ export default function RootLayout() {
     <>
       <Stack screenOptions={{ headerShown: false }} />
       {!splashDone && (
-        <AnimatedSplash ready={sessionChecked} onFinish={() => setSplashDone(true)} />
+        <SplashScreen
+          ready={sessionChecked}
+          onShown={NativeSplash.hide}
+          onFinish={() => setSplashDone(true)}
+        />
       )}
     </>
   );

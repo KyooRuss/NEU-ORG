@@ -1,61 +1,60 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import BottomNav from '@/components/bottom-nav';
+import { BRAND_GRADIENT } from '@/constants/brand';
 import { fetchProfile, type Profile } from '@/lib/profile';
+import { fetchRecommendations, type RecommendedOrg } from '@/lib/recommendations';
 import { supabase } from '@/lib/supabase';
 
-type Section = {
-  icon: keyof typeof Ionicons.glyphMap;
-  title: string;
-  body: string;
-};
+// login-hami.png is 1080 x 798. A dashboard pose will replace it later.
+const HAMI_ASPECT = 1080 / 798;
+// Room at the bottom of the page for the navigation bar.
+const NAV_SPACE = 110;
 
-// Sample sections for now; each becomes a real screen in later steps.
-const sections: Section[] = [
-  {
-    icon: 'sparkles',
-    title: 'Recommended for you',
-    body: 'Organizations matched to your interests will appear here after your profile assessment.',
-  },
-  {
-    icon: 'calendar',
-    title: 'Upcoming events',
-    body: 'Approved events from Main Campus organizations will appear here.',
-  },
-  {
-    icon: 'megaphone',
-    title: 'Announcements & memorandums',
-    body: 'Official OSAS memorandums and announcements from your organizations will appear here.',
-  },
-  {
-    icon: 'people',
-    title: 'My organizations',
-    body: 'Organizations you have joined, and the status of your applications.',
-  },
-];
-
+// The student dashboard. Recommended For You is live (recommend_for_me() in the
+// database); My Organizations is a placeholder until memberships are shown.
+// Styled with StyleSheet so every spacing and color applies the same on web and phones.
 export default function HomeScreen() {
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [recommendations, setRecommendations] = useState<RecommendedOrg[] | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const hamiWidth = Math.min(Math.max(width * 0.36, 120), 170);
 
   useEffect(() => {
     let active = true;
 
-    supabase.auth.getSession().then(async ({ data }) => {
+    supabase.auth.getSession().then(({ data }) => {
       if (!data.session) {
         router.replace('/login');
         return;
       }
-      try {
-        const loaded = await fetchProfile(data.session.user.id);
-        if (active) setProfile(loaded);
-      } catch {
-        // Keep the generic greeting if the profile can't be loaded.
-      }
+      fetchProfile(data.session.user.id)
+        .then((loaded) => active && setProfile(loaded))
+        .catch(() => {
+          // Keep the generic greeting if the profile can't be loaded.
+        });
+      fetchRecommendations()
+        .then((loaded) => active && setRecommendations(loaded))
+        .catch(() => active && setLoadError(true));
     });
 
     return () => {
@@ -64,78 +63,243 @@ export default function HomeScreen() {
   }, []);
 
   async function handleLogout() {
+    setMenuOpen(false);
     await supabase.auth.signOut();
     router.replace('/login');
   }
 
   const firstName = profile?.full_name?.split(' ')[0] ?? 'there';
+  const initial = (profile?.full_name ?? profile?.email ?? '?').trim().charAt(0).toUpperCase();
 
   return (
-    <View className="flex-1 bg-surface">
+    <View style={styles.screen}>
       <StatusBar style="light" />
-      <LinearGradient
-        colors={['#4263EB', '#6C9BF8']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{ paddingBottom: 48 }}>
-        <SafeAreaView edges={['top']} className="px-6 pt-4">
-          <View className="flex-row items-center justify-between">
-            <View className="flex-1">
-              <Text className="font-poppins text-sm text-white/80">Welcome back,</Text>
-              <Text className="font-poppins-semibold text-2xl text-white" numberOfLines={1}>
-                Hi, {firstName}!
+      <ScrollView contentContainerStyle={{ paddingBottom: NAV_SPACE + insets.bottom }}>
+        <LinearGradient {...BRAND_GRADIENT} style={[styles.header, { paddingTop: insets.top + 16 }]}>
+          <View style={styles.column}>
+            <View style={styles.headerRow}>
+              <Text style={styles.greeting} numberOfLines={1}>
+                Hello, {firstName}!
               </Text>
+              <Pressable
+                onPress={() => setMenuOpen((open) => !open)}
+                style={({ pressed }) => [styles.avatar, pressed && styles.pressed]}
+                accessibilityRole="button"
+                accessibilityLabel="Account menu">
+                <Text style={styles.avatarText}>{initial}</Text>
+              </Pressable>
             </View>
+
+            <View style={styles.hamiRow}>
+              <Image
+                source={require('@/assets/images/login-hami.png')}
+                style={{ width: hamiWidth, height: hamiWidth / HAMI_ASPECT }}
+                contentFit="contain"
+                accessibilityLabel="Hami, the NEU-ORG mascot"
+              />
+              <View style={styles.bubbleWrap}>
+                {/* The little point of the speech bubble, toward Hami. */}
+                <View style={styles.bubbleTail} />
+                <View style={styles.bubble}>
+                  <Text style={styles.bubbleName}>Hami</Text>
+                  <Text style={styles.bubbleText}>Check out the latest events from your organizations!</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </LinearGradient>
+
+        <View style={styles.panel}>
+          <View style={styles.column}>
+            <Text style={styles.sectionTitle}>Recommended For You</Text>
+            <Text style={styles.sectionSubtitle}>Based on your profile and interests</Text>
+
+            {recommendations === null && !loadError && (
+              <ActivityIndicator style={styles.loading} color="#3549D6" />
+            )}
+            {loadError && (
+              <Notice text="Recommendations couldn't load. Check your connection and open the app again." />
+            )}
+            {recommendations?.length === 0 && (
+              <Notice text="No matches yet. As more organizations join NEU-ORG, recommendations based on your interests will show up here." />
+            )}
+            <View style={styles.cards}>
+              {recommendations?.map((org) => (
+                <OrgCard key={org.id} org={org} />
+              ))}
+            </View>
+
+            <Text style={[styles.sectionTitle, styles.nextSection]}>My Organizations</Text>
+            <Text style={styles.sectionSubtitle}>Organizations you’ve joined</Text>
+            <Notice text="Organizations you join will appear here, with their latest events and announcements." />
+          </View>
+        </View>
+      </ScrollView>
+
+      {menuOpen && (
+        <>
+          {/* Tap anywhere else to close the menu. */}
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setMenuOpen(false)} />
+          <View style={[styles.menu, { top: insets.top + 62 }]}>
+            <Text style={styles.menuEmail} numberOfLines={1}>
+              {profile?.email}
+            </Text>
             <Pressable
               onPress={handleLogout}
-              accessibilityRole="button"
-              accessibilityLabel="Log out"
-              className="h-11 w-11 items-center justify-center rounded-full bg-white/20 active:opacity-70">
-              <Ionicons name="log-out-outline" size={22} color="#ffffff" />
+              style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}>
+              <Ionicons name="log-out-outline" size={18} color="#DC2626" />
+              <Text style={styles.menuItemText}>Log out</Text>
             </Pressable>
           </View>
-          {profile && (
-            <View className="mt-3 self-start rounded-full bg-white/20 px-3 py-1">
-              <Text className="font-poppins-medium text-xs capitalize text-white">
-                {profile.role}
-              </Text>
-            </View>
-          )}
-        </SafeAreaView>
-      </LinearGradient>
+        </>
+      )}
 
-      <ScrollView
-        className="-mt-8 flex-1 rounded-t-[32px] bg-surface"
-        contentContainerClassName="gap-4 px-6 pb-10 pt-8">
-        <View className="rounded-2xl border border-dashed border-brand-blue/40 bg-white px-4 py-3">
-          <Text className="font-poppins text-xs text-zinc-600">
-            This is a sample home screen. Real organizations and events come in the next steps.
-          </Text>
-        </View>
-
-        {profile?.role === 'officer' && (
-          <View className="rounded-2xl bg-brand-teal px-5 py-4">
-            <Text className="font-poppins-semibold text-sm text-white">Officer account</Text>
-            <Text className="mt-1 font-poppins text-xs text-white/80">
-              Manage your organization, event posts and applications on the NEU ORG web dashboard.
-            </Text>
-          </View>
-        )}
-
-        {sections.map((section) => (
-          <View key={section.title} className="rounded-2xl bg-white p-5">
-            <View className="flex-row items-center gap-3">
-              <View className="h-10 w-10 items-center justify-center rounded-full bg-brand-blue/10">
-                <Ionicons name={section.icon} size={20} color="#3549D6" />
-              </View>
-              <Text className="flex-1 font-poppins-semibold text-base text-brand-ink">
-                {section.title}
-              </Text>
-            </View>
-            <Text className="mt-3 font-poppins text-sm text-zinc-500">{section.body}</Text>
-          </View>
-        ))}
-      </ScrollView>
+      <BottomNav />
     </View>
   );
 }
+
+function OrgCard({ org }: { org: RecommendedOrg }) {
+  return (
+    <View style={styles.card}>
+      <Image
+        source={org.logoUrl ? { uri: org.logoUrl } : require('@/assets/images/neu-org-logo.png')}
+        style={styles.logo}
+        contentFit="cover"
+        accessibilityIgnoresInvertColors
+      />
+      <View style={styles.cardText}>
+        <Text style={styles.orgName} numberOfLines={1}>
+          {org.name}
+        </Text>
+        <Text style={styles.reason} numberOfLines={2}>
+          {org.reason}
+        </Text>
+      </View>
+      {org.recruitmentOpen && (
+        <View style={styles.openBadge}>
+          <Text style={styles.openText}>Open</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function Notice({ text }: { text: string }) {
+  return (
+    <View style={styles.notice}>
+      <Text style={styles.noticeText}>{text}</Text>
+    </View>
+  );
+}
+
+const INK = '#1E2440';
+const MUTED = '#71717A';
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: '#EEF1FB' },
+  // Content stays phone-width on tablets instead of stretching across the screen.
+  column: { width: '100%', maxWidth: 480, alignSelf: 'center', paddingHorizontal: 20 },
+  pressed: { opacity: 0.7 },
+
+  header: { paddingBottom: 44 },
+  headerRow: { flexDirection: 'row', alignItems: 'center' },
+  greeting: { flex: 1, fontFamily: 'Poppins_600SemiBold', fontSize: 22, color: '#FFFFFF' },
+  avatar: {
+    height: 40,
+    width: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  avatarText: { fontFamily: 'Poppins_600SemiBold', fontSize: 16, color: '#FFFFFF' },
+
+  hamiRow: { marginTop: 14, flexDirection: 'row', alignItems: 'center' },
+  bubbleWrap: { flex: 1, marginLeft: 6, flexDirection: 'row', alignItems: 'center' },
+  bubbleTail: {
+    width: 14,
+    height: 14,
+    marginRight: -7,
+    transform: [{ rotate: '45deg' }],
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+  },
+  bubble: {
+    flex: 1,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  bubbleName: { fontFamily: 'Poppins_500Medium', fontSize: 11, color: 'rgba(255, 255, 255, 0.85)' },
+  bubbleText: { marginTop: 2, fontFamily: 'Poppins_400Regular', fontSize: 13, lineHeight: 19, color: '#FFFFFF' },
+
+  panel: {
+    marginTop: -24,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    backgroundColor: '#EEF1FB',
+    paddingTop: 24,
+  },
+  sectionTitle: { fontFamily: 'Poppins_600SemiBold', fontSize: 20, color: INK },
+  sectionSubtitle: { marginBottom: 14, fontFamily: 'Poppins_400Regular', fontSize: 12, color: MUTED },
+  nextSection: { marginTop: 28 },
+  loading: { marginVertical: 24 },
+
+  cards: { gap: 12 },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E4E7F2',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    shadowColor: INK,
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  logo: { width: 48, height: 48, borderRadius: 24 },
+  cardText: { flex: 1, marginLeft: 12 },
+  orgName: { fontFamily: 'Poppins_600SemiBold', fontSize: 15, color: INK },
+  reason: { marginTop: 2, fontFamily: 'Poppins_400Regular', fontSize: 12, lineHeight: 17, color: MUTED },
+  openBadge: {
+    marginLeft: 8,
+    borderRadius: 6,
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  openText: { fontFamily: 'Poppins_500Medium', fontSize: 11, color: '#15803D' },
+
+  notice: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: '#D4D4D8',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  noticeText: { fontFamily: 'Poppins_400Regular', fontSize: 12, lineHeight: 18, color: MUTED },
+
+  menu: {
+    position: 'absolute',
+    right: 20,
+    width: 190,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 8,
+    shadowColor: '#000000',
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  menuEmail: { paddingHorizontal: 16, paddingBottom: 8, fontFamily: 'Poppins_400Regular', fontSize: 12, color: MUTED },
+  menuItem: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10 },
+  menuItemPressed: { backgroundColor: '#F5F7FB' },
+  menuItemText: { marginLeft: 8, fontFamily: 'Poppins_500Medium', fontSize: 14, color: '#DC2626' },
+});

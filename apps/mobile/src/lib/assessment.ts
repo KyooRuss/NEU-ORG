@@ -1,7 +1,5 @@
 import { supabase } from './supabase';
 
-// Up to this many interests, skills and activities each.
-export const MAX_PICKS = 3;
 // Longest interest, skill or activity a student can type in.
 export const MAX_LABEL_LENGTH = 40;
 

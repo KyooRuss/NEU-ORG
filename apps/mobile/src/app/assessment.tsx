@@ -13,6 +13,7 @@ import {
   TextInput,
   type TextInputProps,
   View,
+  type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -35,19 +36,19 @@ const PICKERS: Record<PickKind, { label: string; title: string; subtitle: string
   interest: {
     label: 'Interest or Hobby',
     title: 'Interest & Hobbies',
-    subtitle: 'Select up to 3 interests & hobbies',
+    subtitle: 'Select your interests & hobbies',
     placeholder: 'Select interest or hobby',
   },
   skill: {
     label: 'Skills to improve',
     title: 'Skills to improve',
-    subtitle: 'Select up to 3 skills',
+    subtitle: 'Select the skills you want to improve',
     placeholder: 'Select skills to improve',
   },
   activity: {
     label: 'Preferred Activities',
     title: 'Preferred Activities',
-    subtitle: 'Select up to 3 activities',
+    subtitle: 'Select the activities you enjoy',
     placeholder: 'Select preferred activities',
   },
 };
@@ -163,14 +164,15 @@ export default function AssessmentScreen() {
             </View>
 
             <View className="flex-row gap-3">
-              <Labeled label="Program" className="flex-[2]">
+              <Labeled label="Program" className="flex-1">
                 <SelectField
                   text={department ?? 'Select your program'}
                   empty={!department}
                   onPress={() => setOpen('program')}
                 />
               </Labeled>
-              <Labeled label="Year Level" className="flex-1">
+              {/* Fixed width so "3rd Year" always fits; Program takes the rest. */}
+              <Labeled label="Year Level" style={{ width: 118 }}>
                 <SelectField
                   text={YEAR_LEVELS.find((year) => year.value === yearLevel)?.label ?? 'Select'}
                   empty={!yearLevel}
@@ -246,9 +248,11 @@ export default function AssessmentScreen() {
   );
 }
 
-function Labeled({ label, className, children }: { label: string; className?: string; children: ReactNode }) {
+type LabeledProps = { label: string; className?: string; style?: ViewStyle; children: ReactNode };
+
+function Labeled({ label, className, style, children }: LabeledProps) {
   return (
-    <View className={className}>
+    <View className={className} style={style}>
       <Text className="mb-1.5 font-poppins-semibold text-xs text-brand-ink">{label}</Text>
       {children}
     </View>

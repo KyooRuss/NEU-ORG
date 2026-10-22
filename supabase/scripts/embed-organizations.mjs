@@ -9,7 +9,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-import { embedCategories, embedOrganizations } from '../../apps/web/src/lib/embeddings.ts';
+import { embedCategories, embedOrganizations, embedTerms } from '../../apps/web/src/lib/embeddings.ts';
 
 const BATCH_SIZE = 16;
 
@@ -65,4 +65,32 @@ const { error: categoriesError } = await supabase
   .upsert(names.map((name, index) => ({ name, embedding: categoryEmbeddings[index] })));
 if (categoriesError) fail(`Could not save category embeddings: ${categoriesError.message}`);
 
-console.log(`Done: ${orgs.length} organizations and ${names.length} categories (${names.join(', ')}).`);
+// Profile Assessment words: the picker options plus anything students typed.
+// A saved word keeps its spelling.
+const [termOptions, termProfiles, savedTerms] = await Promise.all([
+  supabase.from('assessment_options').select('label'),
+  supabase.from('profiles').select('interests, skills, preferred_activities'),
+  supabase.from('term_embeddings').select('term'),
+]);
+const termsError = termOptions.error ?? termProfiles.error ?? savedTerms.error;
+if (termsError) fail(`Could not load profile assessment words: ${termsError.message}`);
+const termMap = new Map();
+for (const word of [
+  ...savedTerms.data.map((row) => row.term),
+  ...termOptions.data.map((row) => row.label),
+  ...termProfiles.data.flatMap((row) => [...row.interests, ...row.skills, ...row.preferred_activities]),
+]) {
+  const key = word.trim().toLowerCase();
+  if (key && !termMap.has(key)) termMap.set(key, word.trim());
+}
+const terms = [...termMap.values()];
+
+const termEmbeddings = await embedTerms(terms);
+const { error: termsSaveError } = await supabase
+  .from('term_embeddings')
+  .upsert(terms.map((term, index) => ({ term, embedding: termEmbeddings[index] })));
+if (termsSaveError) fail(`Could not save profile assessment word embeddings: ${termsSaveError.message}`);
+
+console.log(
+  `Done: ${orgs.length} organizations, ${names.length} categories (${names.join(', ')}) and ${terms.length} profile assessment words.`,
+);

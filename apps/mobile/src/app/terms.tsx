@@ -18,6 +18,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BRAND_GRADIENT } from '@/constants/brand';
+import { nextScreenForCurrentUser } from '@/lib/onboarding';
 import { supabase } from '@/lib/supabase';
 import { acceptTerms, TERMS_SECTIONS } from '@/lib/terms';
 
@@ -49,7 +50,8 @@ export default function TermsScreen() {
     setSaving(true);
     try {
       await acceptTerms();
-      router.replace('/home');
+      // Usually the Profile Assessment next; home if it's already done.
+      router.replace(await nextScreenForCurrentUser());
     } catch (error) {
       setSaving(false);
       Alert.alert(

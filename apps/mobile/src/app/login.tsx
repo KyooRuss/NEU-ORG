@@ -23,7 +23,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BRAND_GRADIENT } from '@/constants/brand';
 import { fetchProfile, type Profile } from '@/lib/profile';
 import { supabase } from '@/lib/supabase';
-import { needsTermsAcceptance } from '@/lib/terms';
+import { nextScreen } from '@/lib/onboarding';
 
 // login-hami.png is 1080 x 798, trimmed to Hami. The bottom ~4% is the rounded
 // underside of his sleeves, so he's lowered by that much: the widest part of
@@ -86,8 +86,8 @@ export default function LoginScreen() {
       return;
     }
 
-    // Students accept the Terms & Privacy Policy before using the app.
-    router.replace(needsTermsAcceptance(profile) ? '/terms' : '/home');
+    // Terms & Privacy, then the Profile Assessment, then home.
+    router.replace(nextScreen(profile));
   }
 
   return (

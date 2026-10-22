@@ -29,6 +29,7 @@ import { fetchOrganizations } from '../lib/organizations'
 import type { Profile } from '../lib/profile'
 import { countMyPendingApplications } from '../lib/recruitment'
 import { supabase } from '../lib/supabase'
+import { embedMissingTerms } from '../lib/termEmbeddings'
 import AddOrganizationPage from './AddOrganizationPage'
 import AdminOfficersPage from './AdminOfficersPage'
 import AnnouncementsPage from './AnnouncementsPage'
@@ -166,6 +167,11 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
   const [pendingEvents, setPendingEvents] = useState<number | null>(null)
   // Bumped after the admin reviews a request, so the badge reloads right away.
   const [badgeKey, setBadgeKey] = useState(0)
+
+  // Lets the AI understand any new words students typed in their Profile Assessment.
+  useEffect(() => {
+    if (isAdmin) embedMissingTerms()
+  }, [isAdmin])
 
   // Reload the badge whenever the admin moves to another page or reviews a request.
   useEffect(() => {

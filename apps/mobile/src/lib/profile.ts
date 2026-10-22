@@ -9,12 +9,14 @@ export type Profile = {
   role: UserRole;
   // The Terms & Privacy version the user accepted, or null if they haven't yet.
   terms_version: string | null;
+  // Set once the student has filled in the Profile Assessment.
+  assessment_completed_at: string | null;
 };
 
 export async function fetchProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, email, full_name, role, terms_version')
+    .select('id, email, full_name, role, terms_version, assessment_completed_at')
     .eq('id', userId)
     .maybeSingle();
 

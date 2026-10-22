@@ -48,6 +48,11 @@ export function embedCategories(names: string[]) {
   return embed(names.map((name) => `query: ${name}`))
 }
 
+// Words students pick or type in the mobile Profile Assessment (interests, skills, activities).
+export function embedTerms(terms: string[]) {
+  return embed(terms.map((term) => `query: ${term}`))
+}
+
 // The model reads at most ~512 tokens (a few paragraphs), so the most telling parts go first.
 function organizationText(org: EmbeddingSource) {
   return [

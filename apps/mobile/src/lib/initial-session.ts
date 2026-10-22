@@ -1,10 +1,10 @@
 import type { Session } from '@supabase/supabase-js';
 
+import { nextScreen, type StudentScreen } from './onboarding';
 import { fetchProfile } from './profile';
 import { supabase } from './supabase';
-import { needsTermsAcceptance } from './terms';
 
-export type FirstScreen = '/login' | '/terms' | '/home';
+export type FirstScreen = '/login' | StudentScreen;
 
 let check: Promise<FirstScreen> | null = null;
 
@@ -31,7 +31,7 @@ async function decideFirstScreen(): Promise<FirstScreen> {
       await supabase.auth.signOut();
       return '/login';
     }
-    return needsTermsAcceptance(profile) ? '/terms' : '/home';
+    return nextScreen(profile);
   } catch {
     // Offline or the profile couldn't be read: logging in again checks everything.
     return '/login';

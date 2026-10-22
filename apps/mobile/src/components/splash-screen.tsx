@@ -4,8 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
-// The splash design's gradient: darker blue lower-left, lighter blue upper-right.
-const GRADIENT = ['#3659DD', '#4B70E8', '#6A94FA'] as const;
+import { BRAND_GRADIENT } from '@/constants/brand';
 
 // Shown for at least this long, so it never just flashes by.
 const MIN_SHOWN_MS = 1400;
@@ -55,12 +54,7 @@ export default function SplashScreen({ ready, onShown, onFinish }: Props) {
   return (
     <View style={StyleSheet.absoluteFill} accessible accessibilityLabel="NEU-ORG is loading">
       <StatusBar style="light" />
-      <LinearGradient
-        colors={GRADIENT}
-        start={{ x: 0, y: 0.7 }}
-        end={{ x: 1, y: 0.2 }}
-        style={StyleSheet.absoluteFill}
-      />
+      <LinearGradient {...BRAND_GRADIENT} style={StyleSheet.absoluteFill} />
 
       {/* Hidden (not removed) until the logo loads, so the image can load in the meantime. */}
       <View style={[styles.center, { opacity: logoLoaded ? 1 : 0 }]}>

@@ -4,9 +4,11 @@
   "type": "module",
   "scripts": {
     "seed:users": "node --env-file=.env supabase/scripts/seed-users.mjs",
-    "embed:orgs": "node --env-file=.env supabase/scripts/embed-organizations.mjs"
+    "embed:orgs": "node --env-file=.env supabase/scripts/embed-organizations.mjs",
+    "check:recommendations": "node supabase/scripts/check-recommendations.mjs"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.3.16",
     "@supabase/supabase-js": "^2.117.2"
   }
 }

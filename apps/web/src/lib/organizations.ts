@@ -58,7 +58,7 @@ export type OrganizationFiles = {
   newPhotos: File[]
 }
 
-export const PRESET_CATEGORIES = ['Academic', 'Cultural', 'Sports', 'Religious', 'Special Interest']
+export const PRESET_CATEGORIES = ['Academic', 'Sports']
 export const MAX_CATEGORIES = 3
 
 // Edit this list to match the colleges NEU actually has.

@@ -143,7 +143,7 @@ export default function OrganizationFormModal({ organization: org, profileOnly, 
             <legend className="text-sm text-zinc-700">
               Category <span className="text-red-600">*</span>{' '}
               <span className="text-xs text-zinc-500">
-                ({values.categories.length}/{MAX_CATEGORIES}, pick up to {MAX_CATEGORIES} or type your own)
+                ({values.categories.length}/{MAX_CATEGORIES}, pick or add your own)
               </span>
             </legend>
             <div className="mt-2 flex flex-wrap gap-2">
@@ -181,7 +181,7 @@ export default function OrganizationFormModal({ organization: org, profileOnly, 
                   }
                 }}
                 disabled={categoriesFull}
-                placeholder="Type a custom category"
+                placeholder="Not listed? Type a new category"
                 aria-label="Custom category"
                 className={`${fieldClass} mt-0 disabled:opacity-50`}
               />

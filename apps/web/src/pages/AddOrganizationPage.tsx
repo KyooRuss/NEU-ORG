@@ -330,8 +330,8 @@ function Card({ children }: { children: ReactNode }) {
   return <section className="rounded-2xl bg-white p-6 shadow-md ring-1 ring-zinc-200">{children}</section>
 }
 
-// A search box over the preset categories. Enter adds the highlighted match, or
-// the typed text as a custom category if nothing matches.
+// A search box over the preset categories. Enter (or the Add button) adds the first
+// match, or the typed text as a custom category if nothing matches.
 function CategoryPicker({ form }: { form: ReturnType<typeof useOrganizationForm> }) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
@@ -340,6 +340,12 @@ function CategoryPicker({ form }: { form: ReturnType<typeof useOrganizationForm>
     (category) => !form.hasCategory(category) && category.toLowerCase().includes(typed),
   )
   const full = form.categoriesFull
+  // Offer the typed text as a new category unless it's already a preset or already chosen.
+  const canAddNew =
+    typed !== '' &&
+    !form.hasCategory(typed) &&
+    !PRESET_CATEGORIES.some((category) => category.toLowerCase() === typed)
+  const showList = open && !full && (matches.length > 0 || canAddNew)
 
   const input = useRef<HTMLInputElement>(null)
   const chosen = form.values.categories
@@ -398,16 +404,30 @@ function CategoryPicker({ form }: { form: ReturnType<typeof useOrganizationForm>
                   form.removeCategory(chosen[chosen.length - 1])
                 }
               }}
-              placeholder={chosen.length ? 'Add another…' : 'Search or type a category… *'}
+              placeholder={chosen.length ? 'Add another…' : 'Choose a category or type a new one… *'}
               aria-label="Category (required)"
               role="combobox"
-              aria-expanded={open && matches.length > 0}
+              aria-expanded={showList}
               aria-controls="category-options"
               className="min-w-32 flex-1 bg-transparent px-2 py-1 text-sm text-zinc-800 outline-none placeholder:text-zinc-500"
             />
           )}
+          {!full && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation()
+                if (typed) add(matches[0] ?? query)
+              }}
+              disabled={!typed}
+              className="inline-flex items-center gap-1 rounded-md bg-brand-blue px-2.5 py-1 text-xs font-medium text-white transition hover:opacity-90 disabled:opacity-40"
+            >
+              <Plus size={12} aria-hidden="true" />
+              Add
+            </button>
+          )}
         </div>
-        {open && !full && matches.length > 0 && (
+        {showList && (
           <ul
             id="category-options"
             role="listbox"
@@ -426,12 +446,25 @@ function CategoryPicker({ form }: { form: ReturnType<typeof useOrganizationForm>
                 </button>
               </li>
             ))}
+            {canAddNew && (
+              <li role="option" aria-selected={false}>
+                <button
+                  type="button"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => add(query)}
+                  className="flex w-full items-center gap-1.5 rounded-md px-3 py-2 text-left text-sm text-brand-blue hover:bg-surface"
+                >
+                  <Plus size={14} aria-hidden="true" />
+                  Add “{query.trim()}”
+                </button>
+              </li>
+            )}
           </ul>
         )}
       </div>
 
       <p className="mt-2 text-xs text-zinc-500">
-        Choose up to {MAX_CATEGORIES} categories. Type a custom one + press Enter if not listed.
+        Choose up to {MAX_CATEGORIES} categories. Not listed? Type it and click Add.
       </p>
     </div>
   )

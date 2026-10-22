@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "seed:users": "node --env-file=.env supabase/scripts/seed-users.mjs"
+    "seed:users": "node --env-file=.env supabase/scripts/seed-users.mjs",
+    "embed:orgs": "node --env-file=.env supabase/scripts/embed-organizations.mjs"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.117.2"

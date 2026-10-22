@@ -1,3 +1,4 @@
+import { embedCategories, embedOrganizations, type EmbeddingSource } from './embeddings'
 import { supabase } from './supabase'
 
 export type OrgStatus = 'active' | 'archived'
@@ -256,6 +257,8 @@ export async function createOrganization(input: OrganizationInput, files: Organi
     await removeFiles(uploaded.newPaths)
     throw friendlyError(error)
   }
+
+  refreshEmbeddings({ id, ...values }, { withCategories: true })
 }
 
 export async function updateOrganization(
@@ -266,6 +269,7 @@ export async function updateOrganization(
   const values = clean(input)
   if (sampleStore) checkSampleName(values.name, org.id)
   await saveChanges(org, values, files)
+  refreshEmbeddings({ ...org, ...values }, { withCategories: true })
 }
 
 // For officers: saves the profile and images, and leaves the fields only an admin
@@ -276,20 +280,51 @@ export async function updateOrganizationProfile(
   files: OrganizationFiles,
 ) {
   const values = clean(input)
-  await saveChanges(
-    org,
-    {
-      description: values.description,
-      vision: values.vision,
-      mission: values.mission,
-      room_number: values.room_number,
-      telegram_contact: values.telegram_contact,
-      facebook_contact: values.facebook_contact,
-      reasons_to_join: values.reasons_to_join,
-      testimonials: values.testimonials,
-    },
-    files,
+  const profile = {
+    description: values.description,
+    vision: values.vision,
+    mission: values.mission,
+    room_number: values.room_number,
+    telegram_contact: values.telegram_contact,
+    facebook_contact: values.facebook_contact,
+    reasons_to_join: values.reasons_to_join,
+    testimonials: values.testimonials,
+  }
+  await saveChanges(org, profile, files)
+  // Officers can't change categories, so only the org's own embedding needs redoing.
+  refreshEmbeddings({ ...org, ...profile })
+}
+
+// Re-makes the org's embedding for AI recommendations, plus one for each category
+// that doesn't have one yet. Runs in the background so a save never waits on the
+// model download. If it fails the org is still saved; `npm run embed:orgs` fills
+// in anything missed.
+function refreshEmbeddings(org: EmbeddingSource & { id: string }, { withCategories = false } = {}) {
+  if (sampleStore) return
+  saveEmbeddings(org, withCategories).catch((error) =>
+    console.warn('Could not update the recommendation data for this organization.', error),
   )
+}
+
+async function saveEmbeddings(org: EmbeddingSource & { id: string }, withCategories: boolean) {
+  const [embedding] = await embedOrganizations([org])
+  const { error } = await supabase
+    .from('organization_embeddings')
+    .upsert({ organization_id: org.id, embedding })
+  if (error) throw error
+  if (!withCategories) return
+
+  const { data: known, error: readError } = await supabase.from('category_embeddings').select('name')
+  if (readError) throw readError
+  const knownNames = new Set(known.map(({ name }) => name.toLowerCase()))
+  const missing = org.categories.filter((name) => !knownNames.has(name.toLowerCase()))
+  if (missing.length === 0) return
+
+  const embeddings = await embedCategories(missing)
+  const { error: insertError } = await supabase
+    .from('category_embeddings')
+    .insert(missing.map((name, index) => ({ name, embedding: embeddings[index] })))
+  if (insertError) throw insertError
 }
 
 async function saveChanges(

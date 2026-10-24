@@ -1,10 +1,12 @@
-import { Building2, MapPin, Send, UserRound } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { Building2, CalendarDays, MapPin, Send, UserRound, Users } from 'lucide-react'
+import { type ReactNode, useEffect, useState } from 'react'
 
-import { mediaUrl, type Organization } from '../lib/organizations'
+import { fetchMembers, type Member } from '../lib/members'
+import { mediaUrl, type Organization, usingSampleData } from '../lib/organizations'
 import Modal, { secondaryButton } from './Modal'
 
 const dateFormat = new Intl.DateTimeFormat('en-PH', { dateStyle: 'medium', timeStyle: 'short' })
+const dayFormat = new Intl.DateTimeFormat('en-PH', { dateStyle: 'medium' })
 
 export default function OrganizationDetailsModal({
   organization: org,
@@ -48,6 +50,18 @@ export default function OrganizationDetailsModal({
               }`}
             >
               {org.status}
+            </span>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-4 text-sm text-zinc-600">
+            <span className="inline-flex items-center gap-1.5">
+              <Users size={15} className="text-brand-blue" aria-hidden="true" />
+              <strong className="font-semibold text-brand-navy">{org.member_count ?? '—'}</strong>
+              {org.member_count === 1 ? 'Member' : 'Members'}
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <CalendarDays size={15} className="text-brand-blue" aria-hidden="true" />
+              <strong className="font-semibold text-brand-navy">{org.event_count ?? '—'}</strong>
+              {org.event_count === 1 ? 'Event' : 'Events'}
             </span>
           </div>
         </div>
@@ -96,7 +110,8 @@ export default function OrganizationDetailsModal({
               </ol>
             )}
           </Detail>
-          <Detail label="Department">{org.department}</Detail>          <Detail label="Member / Alumni Testimonials">
+          <Detail label="Department">{org.department}</Detail>
+          <Detail label="Member / Alumni Testimonials">
             {org.testimonials.length > 0 && (
               <div className="grid gap-3">
                 {org.testimonials.map((item, index) => (
@@ -119,7 +134,76 @@ export default function OrganizationDetailsModal({
           )}
         </dl>
       </div>
+
+      <MemberList org={org} />
     </Modal>
+  )
+}
+
+// Who's in the organization. View only; officers manage members on their Members page.
+function MemberList({ org }: { org: Organization }) {
+  const sample = usingSampleData()
+  const [members, setMembers] = useState<Member[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (sample) return
+    let cancelled = false
+    fetchMembers(org.id)
+      .then((loaded) => {
+        if (!cancelled) setMembers(loaded)
+      })
+      .catch((caught: Error) => {
+        if (!cancelled) setError(caught.message)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [org.id, sample])
+
+  return (
+    <section className="mt-8 border-t border-zinc-200 pt-6">
+      <h3 className="text-xs font-medium tracking-wide text-zinc-500 uppercase">
+        Members{members ? ` (${members.length})` : ''}
+      </h3>
+      {sample ? (
+        <p className="mt-2 text-sm text-zinc-400 italic">Sample organizations don’t have a member list.</p>
+      ) : error ? (
+        <p role="alert" className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+          Could not load the members: {error}
+        </p>
+      ) : !members ? (
+        <p className="mt-2 text-sm text-zinc-500">Loading…</p>
+      ) : members.length === 0 ? (
+        <p className="mt-2 text-sm text-zinc-400 italic">No members yet.</p>
+      ) : (
+        <div className="mt-3 max-h-72 overflow-auto rounded-lg ring-1 ring-zinc-200">
+          <table className="w-full min-w-[560px] text-left text-sm">
+            <thead className="sticky top-0 bg-surface text-xs tracking-wide text-zinc-500 uppercase">
+              <tr>
+                <th className="px-4 py-2.5 font-medium">Name</th>
+                <th className="px-4 py-2.5 font-medium">Student No.</th>
+                <th className="px-4 py-2.5 font-medium">Program</th>
+                <th className="px-4 py-2.5 font-medium">Joined</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-100">
+              {members.map((member) => (
+                <tr key={member.id}>
+                  <td className="px-4 py-2.5">
+                    <p className="font-medium text-brand-navy">{member.name}</p>
+                    <p className="text-xs text-zinc-500">{member.email}</p>
+                  </td>
+                  <td className="px-4 py-2.5 text-zinc-700">{member.student_no ?? '—'}</td>
+                  <td className="px-4 py-2.5 text-zinc-700">{member.program ?? '—'}</td>
+                  <td className="px-4 py-2.5 text-zinc-700">{dayFormat.format(new Date(member.joined_at))}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   )
 }
 

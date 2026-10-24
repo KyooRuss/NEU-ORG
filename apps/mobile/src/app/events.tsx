@@ -27,6 +27,7 @@ import {
   type EventItem,
   type EventWhen,
 } from '@/lib/events';
+import { COLLEGES } from '@/lib/assessment';
 import { supabase } from '@/lib/supabase';
 
 // Room at the bottom of the page for the navigation bar.
@@ -34,6 +35,12 @@ const NAV_SPACE = 110;
 // The Filter picker's "no filter" choice.
 const ALL = '';
 const UNIVERSITY_WIDE = 'University Wide';
+
+// An event belongs to a department when its organization is from there, or
+// when the officers made it for that college.
+function isForDepartment(event: EventItem, department: string) {
+  return event.org.department === department || event.audienceColleges.includes(department);
+}
 
 const EMPTY_CONTEXT: EventContext = { memberOrgIds: new Set(), ratedEventIds: new Set(), department: null };
 
@@ -109,18 +116,22 @@ export default function EventsScreen() {
     }
   }, [when, userId]);
 
-  // The departments with events in the current list: University Wide first, then A to Z.
+  // Every school department, whether or not it has events right now. The
+  // student's own college comes right after "All".
   const departmentOptions = useMemo(() => {
-    const names = [...new Set((events ?? []).map((event) => event.org.department).filter(Boolean))].sort(
-      (a, b) => (a === UNIVERSITY_WIDE ? -1 : b === UNIVERSITY_WIDE ? 1 : a.localeCompare(b)),
-    );
-    return [{ value: ALL, label: 'All Departments' }, ...names.map((name) => ({ value: name, label: name }))];
-  }, [events]);
+    const mine = context.department && COLLEGES.includes(context.department) ? context.department : null;
+    const rest = [UNIVERSITY_WIDE, ...COLLEGES].filter((name) => name !== mine);
+    return [
+      { value: ALL, label: 'All Departments' },
+      ...(mine ? [{ value: mine, label: `${mine} (Your college)` }] : []),
+      ...rest.map((name) => ({ value: name, label: name })),
+    ];
+  }, [context.department]);
 
   const sections = useMemo(() => {
     const query = search.trim().toLowerCase();
     const visible = (events ?? []).filter((event) => {
-      if (department && event.org.department !== department) return false;
+      if (department && !isForDepartment(event, department)) return false;
       if (!query) return true;
       return [event.title, event.org.name, event.venue].some((text) => text.toLowerCase().includes(query));
     });
@@ -147,7 +158,6 @@ export default function EventsScreen() {
     setEvents(null);
     setLoadError(false);
     setWhen(next);
-    setDepartment(ALL);
   }
 
   return (

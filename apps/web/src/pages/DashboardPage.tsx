@@ -37,6 +37,7 @@ import ApprovedEventsPage from './ApprovedEventsPage'
 import EventPostsPage from './EventPostsPage'
 import EventRequestsPage from './EventRequestsPage'
 import FeedbackPage from './FeedbackPage'
+import MembersPage from './MembersPage'
 import MyOrganizationPage from './MyOrganizationPage'
 import ProfessorsPage from './ProfessorsPage'
 import RecruitmentPage from './RecruitmentPage'
@@ -85,12 +86,13 @@ const officerNav: NavItem[] = [
   { label: 'My Organization', icon: Building2 },
   { label: 'Event Posts', icon: CalendarDays },
   { label: 'Recruitment', icon: UserCheck },
+  { label: 'Members', icon: Users },
   { label: 'Announcements', icon: Megaphone },
   { label: 'Feedback', icon: MessageSquareText },
 ]
 
 // The officer pages that exist so far (besides Dashboard).
-const officerPages = ['My Organization', 'Event Posts', 'Recruitment', 'Announcements', 'Feedback']
+const officerPages = ['My Organization', 'Event Posts', 'Recruitment', 'Members', 'Announcements', 'Feedback']
 
 const adminStats: StatCard[] = [
   { key: 'organizations', label: 'Organizations', hint: 'Verified Main Campus Orgs', icon: Users },
@@ -424,6 +426,8 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
             <EventPostsPage profileId={profile.id} />
           ) : page === 'Recruitment' ? (
             <RecruitmentPage profileId={profile.id} />
+          ) : page === 'Members' ? (
+            <MembersPage profileId={profile.id} />
           ) : page === 'Announcements' ? (
             <AnnouncementsPage profileId={profile.id} openId={openAnnouncementId} />
           ) : page === 'Feedback' ? (

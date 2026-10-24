@@ -192,44 +192,60 @@ type RowProps = {
 };
 
 // One row of the list. The rows join into one white panel with thin lines between.
+// The details area and the Apply pill are side by side, not one inside the
+// other: on web a pressable button can't contain another button.
 function RecruitRow({ org, state, first, last, onOpen, onApply }: RowProps) {
   const pill = PILLS[state];
 
   return (
-    <Pressable
-      onPress={onOpen}
-      style={({ pressed }) => [styles.row, first && styles.rowFirst, last && styles.rowLast, pressed && styles.rowPressed]}
-      accessibilityRole="button"
-      accessibilityLabel={`${org.name}, view details`}>
-      <Image
-        source={org.logoUrl ? { uri: org.logoUrl } : require('@/assets/images/neu-org-logo.png')}
-        style={styles.logo}
-        contentFit="cover"
-        accessibilityIgnoresInvertColors
-      />
-      <View style={styles.rowText}>
-        <Text style={styles.name} numberOfLines={1}>
-          {org.name}
-        </Text>
-        {org.categories.length > 0 && (
-          <Text style={styles.categories} numberOfLines={1}>
-            {org.categories.join(', ')}
+    <View style={[styles.row, first && styles.rowFirst, last && styles.rowLast]}>
+      <Pressable
+        onPress={onOpen}
+        style={({ pressed }) => [styles.rowMain, pressed && styles.pressed]}
+        accessibilityRole="button"
+        accessibilityLabel={`${org.name}, view details`}>
+        <Image
+          source={org.logoUrl ? { uri: org.logoUrl } : require('@/assets/images/neu-org-logo.png')}
+          style={styles.logo}
+          contentFit="cover"
+          accessibilityIgnoresInvertColors
+        />
+        <View style={styles.rowText}>
+          <Text style={styles.name} numberOfLines={1}>
+            {org.name}
           </Text>
-        )}
-      </View>
+          {org.categories.length > 0 && (
+            <Text style={styles.categories} numberOfLines={1}>
+              {org.categories.join(', ')}
+            </Text>
+          )}
+        </View>
+      </Pressable>
       <View style={styles.rowEnd}>
+        {state === 'none' ? (
+          <Pressable
+            onPress={onApply}
+            hitSlop={6}
+            style={({ pressed }) => [styles.pill, { backgroundColor: pill.background }, pressed && styles.pressed]}
+            accessibilityRole="button"
+            accessibilityLabel={`Apply to ${org.name}`}>
+            <Text style={[styles.pillText, { color: pill.color }]}>{pill.label}</Text>
+          </Pressable>
+        ) : (
+          <View style={[styles.pill, { backgroundColor: pill.background }]}>
+            <Text style={[styles.pillText, { color: pill.color }]}>{pill.label}</Text>
+          </View>
+        )}
         <Pressable
-          onPress={state === 'none' ? onApply : undefined}
-          disabled={state !== 'none'}
-          hitSlop={6}
-          style={({ pressed }) => [styles.pill, { backgroundColor: pill.background }, pressed && styles.pressed]}
+          onPress={onOpen}
+          hitSlop={8}
+          style={({ pressed }) => pressed && styles.pressed}
           accessibilityRole="button"
-          accessibilityLabel={state === 'none' ? `Apply to ${org.name}` : pill.label}>
-          <Text style={[styles.pillText, { color: pill.color }]}>{pill.label}</Text>
+          accessibilityLabel={`${org.name}, view details`}>
+          <Ionicons name="chevron-forward" size={18} color="#A1A1AA" />
         </Pressable>
-        <Ionicons name="chevron-forward" size={18} color="#A1A1AA" />
       </View>
-    </Pressable>
+    </View>
   );
 }
 
@@ -281,7 +297,7 @@ const styles = StyleSheet.create({
   },
   rowFirst: { borderTopLeftRadius: 16, borderTopRightRadius: 16 },
   rowLast: { borderBottomWidth: 0, borderBottomLeftRadius: 16, borderBottomRightRadius: 16 },
-  rowPressed: { backgroundColor: '#F5F7FB' },
+  rowMain: { flex: 1, flexDirection: 'row', alignItems: 'center' },
   logo: { width: 48, height: 48, borderRadius: 24 },
   rowText: { flex: 1, marginLeft: 12, marginRight: 8 },
   name: { fontFamily: 'Poppins_600SemiBold', fontSize: 15, color: INK },

@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { router, usePathname, type Href } from 'expo-router';
 import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -6,11 +7,13 @@ type Tab = {
   key: string;
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
+  // The screen it opens. Tabs without one aren't built yet.
+  href?: Href;
 };
 
 // Home sits in the middle as the big round button.
 const LEFT_TABS: Tab[] = [
-  { key: 'organizations', label: 'Organizations', icon: 'people-outline' },
+  { key: 'organizations', label: 'Organizations', icon: 'people-outline', href: '/organizations' },
   { key: 'my-org', label: 'My Organizations', icon: 'phone-portrait-outline' },
 ];
 const RIGHT_TABS: Tab[] = [
@@ -21,27 +24,35 @@ const RIGHT_TABS: Tab[] = [
 // Sample count until notifications are built.
 const SAMPLE_NOTIFICATIONS = 4;
 
-// The app's bottom navigation. Only Home works for now; the other tabs are
-// built in later steps.
+// The app's bottom navigation. Home and Organizations work; the other tabs are
+// built in later steps. The tab for the current screen is highlighted.
 export default function BottomNav() {
   const insets = useSafeAreaInsets();
+  const pathname = usePathname();
+  const onHome = pathname === '/home';
 
   return (
     <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
       {LEFT_TABS.map((tab) => (
-        <TabButton key={tab.key} tab={tab} />
+        <TabButton key={tab.key} tab={tab} active={!!tab.href && pathname.startsWith(String(tab.href))} />
       ))}
 
       <View style={styles.homeSlot}>
-        <View style={styles.home} accessibilityRole="button" accessibilityLabel="Home" accessibilityState={{ selected: true }}>
-          <Ionicons name="home" size={26} color="#FFFFFF" />
-        </View>
+        <Pressable
+          onPress={() => !onHome && router.replace('/home')}
+          style={[styles.home, !onHome && styles.homeIdle]}
+          accessibilityRole="button"
+          accessibilityLabel="Home"
+          accessibilityState={{ selected: onHome }}>
+          <Ionicons name={onHome ? 'home' : 'home-outline'} size={26} color={onHome ? '#FFFFFF' : '#3549D6'} />
+        </Pressable>
       </View>
 
       {RIGHT_TABS.map((tab) => (
         <TabButton
           key={tab.key}
           tab={tab}
+          active={false}
           badge={tab.key === 'notifications' ? SAMPLE_NOTIFICATIONS : 0}
         />
       ))}
@@ -49,15 +60,27 @@ export default function BottomNav() {
   );
 }
 
-function TabButton({ tab, badge = 0 }: { tab: Tab; badge?: number }) {
+function TabButton({ tab, active, badge = 0 }: { tab: Tab; active: boolean; badge?: number }) {
+  function handlePress() {
+    if (!tab.href) comingSoon(tab.label);
+    else if (!active) router.replace(tab.href);
+  }
+
   return (
     <Pressable
-      onPress={() => comingSoon(tab.label)}
+      onPress={handlePress}
       style={styles.tab}
       hitSlop={6}
       accessibilityRole="button"
+      accessibilityState={{ selected: active }}
       accessibilityLabel={badge ? `${tab.label}, ${badge} new` : tab.label}>
-      <Ionicons name={tab.icon} size={24} color="#52525B" />
+      <View style={[styles.iconWrap, active && styles.iconWrapActive]}>
+        <Ionicons
+          name={active ? (tab.icon.replace('-outline', '') as Tab['icon']) : tab.icon}
+          size={24}
+          color={active ? '#FFFFFF' : '#52525B'}
+        />
+      </View>
       {badge > 0 && (
         <View style={styles.badge}>
           <Text style={styles.badgeText}>{badge}</Text>
@@ -68,7 +91,7 @@ function TabButton({ tab, badge = 0 }: { tab: Tab; badge?: number }) {
 }
 
 // React Native's Alert does nothing in the web preview, so use the browser's there.
-function comingSoon(label: string) {
+export function comingSoon(label: string) {
   const message = `${label} is coming soon.`;
   if (Platform.OS === 'web') window.alert(message);
   else Alert.alert(label, message);
@@ -93,7 +116,9 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -4 },
     elevation: 12,
   },
-  tab: { flex: 1, alignItems: 'center', paddingVertical: 6 },
+  tab: { flex: 1, alignItems: 'center', paddingVertical: 2 },
+  iconWrap: { height: 44, width: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22 },
+  iconWrapActive: { backgroundColor: '#3549D6' },
   homeSlot: { flex: 1, alignItems: 'center' },
   home: {
     marginTop: -30,
@@ -111,6 +136,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 8,
   },
+  homeIdle: { backgroundColor: '#EEF1FB', shadowOpacity: 0.12 },
   badge: {
     position: 'absolute',
     top: 0,

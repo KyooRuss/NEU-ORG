@@ -31,13 +31,15 @@ export type OrgDetails = OrgListItem & {
   photoUrls: string[];
 };
 
-// Every active organization, A to Z. Students can only read active ones.
-export async function fetchOrganizations(): Promise<OrgListItem[]> {
-  const { data, error } = await supabase
+// Every active organization, A to Z, or only the ones recruiting right now.
+// Students can only read active ones.
+export async function fetchOrganizations({ recruitingOnly = false } = {}): Promise<OrgListItem[]> {
+  let query = supabase
     .from('organizations')
     .select('id, name, description, categories, logo_path, recruitment_open')
-    .eq('status', 'active')
-    .order('name');
+    .eq('status', 'active');
+  if (recruitingOnly) query = query.eq('recruitment_open', true);
+  const { data, error } = await query.order('name');
   if (error) throw error;
 
   return data.map((org) => ({

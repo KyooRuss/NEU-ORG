@@ -4,24 +4,33 @@ import { supabase } from './supabase';
 // since they can apply again.
 export type ApplyState = 'none' | 'pending' | 'member';
 
+// The IDs of the organizations the student is a member of.
+export async function fetchMyMemberOrgIds(profileId: string): Promise<Set<string>> {
+  const { data, error } = await supabase
+    .from('organization_members')
+    .select('organization_id')
+    .eq('profile_id', profileId);
+  if (error) throw error;
+  return new Set(data.map((row) => row.organization_id as string));
+}
+
 // The student's state for every organization they've joined or applied to.
 // Organizations missing from the map are "none".
 export async function fetchMyApplyStates(profileId: string): Promise<Map<string, ApplyState>> {
-  const [members, applications] = await Promise.all([
-    supabase.from('organization_members').select('organization_id').eq('profile_id', profileId),
+  const [memberOrgIds, applications] = await Promise.all([
+    fetchMyMemberOrgIds(profileId),
     supabase
       .from('membership_applications')
       .select('organization_id')
       .eq('profile_id', profileId)
       .eq('status', 'pending'),
   ]);
-  if (members.error) throw members.error;
   if (applications.error) throw applications.error;
 
   const states = new Map<string, ApplyState>();
   for (const row of applications.data) states.set(row.organization_id, 'pending');
   // Membership wins over an application.
-  for (const row of members.data) states.set(row.organization_id, 'member');
+  for (const orgId of memberOrgIds) states.set(orgId, 'member');
   return states;
 }
 

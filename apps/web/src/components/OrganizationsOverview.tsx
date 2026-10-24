@@ -1,6 +1,7 @@
 import { Building2, Eye, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
+import { withCounts } from '../lib/members'
 import {
   archiveOrganization,
   COLLEGES,
@@ -34,6 +35,7 @@ export default function OrganizationsOverview({ onAdd }: { onAdd: () => void }) 
   useEffect(() => {
     let cancelled = false
     fetchOrganizations('active')
+      .then(withCounts)
       .then((loaded) => {
         if (cancelled) return
         setOrganizations(loaded)
@@ -138,7 +140,6 @@ export default function OrganizationsOverview({ onAdd }: { onAdd: () => void }) 
                   <OrgNameCell org={org} />
                 </td>
                 <td className="px-6 py-4 text-center text-zinc-700">{org.department}</td>
-                {/* Real counts arrive once memberships and events are stored in Supabase. */}
                 <td className="px-6 py-4 text-center text-zinc-700">{org.member_count ?? '—'}</td>
                 <td className="px-6 py-4 text-center text-zinc-700">{org.event_count ?? '—'}</td>
                 <td className="px-6 py-4">

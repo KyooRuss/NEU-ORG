@@ -1,3 +1,4 @@
+import { type Organization, usingSampleData } from './organizations'
 import { supabase } from './supabase'
 
 // A student who joined an organization (an officer accepted their application
@@ -127,4 +128,21 @@ export async function fetchOrganizationCounts(): Promise<OrganizationCounts> {
   for (const row of members.data ?? []) entry(row.organization_id).members += 1
   for (const row of events.data ?? []) entry(row.organization_id).events += 1
   return counts
+}
+
+// The organizations with their real member and event counts filled in. The
+// sample organizations keep their own numbers. If the counts can't load, the
+// list still shows, with "—" in those columns.
+export async function withCounts(organizations: Organization[]): Promise<Organization[]> {
+  if (usingSampleData()) return organizations
+  try {
+    const counts = await fetchOrganizationCounts()
+    return organizations.map((org) => ({
+      ...org,
+      member_count: counts.get(org.id)?.members ?? 0,
+      event_count: counts.get(org.id)?.events ?? 0,
+    }))
+  } catch {
+    return organizations
+  }
 }

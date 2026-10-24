@@ -1,7 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, usePathname, type Href } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { fetchUnreadCount, onReadChanged } from '@/lib/notifications';
+import { supabase } from '@/lib/supabase';
 
 type Tab = {
   key: string;
@@ -11,53 +15,62 @@ type Tab = {
   href?: Href;
 };
 
-// Home sits in the middle as the big round button.
-const LEFT_TABS: Tab[] = [
+// In bar order; Home sits in the middle.
+const TABS: Tab[] = [
   { key: 'organizations', label: 'Organizations', icon: 'people-outline', href: '/organizations' },
   { key: 'recruitment', label: 'Recruitment', icon: 'phone-portrait-outline', href: '/recruitment' },
-];
-const RIGHT_TABS: Tab[] = [
+  { key: 'home', label: 'Home', icon: 'home-outline', href: '/home' },
   { key: 'events', label: 'Events', icon: 'calendar-outline', href: '/events' },
-  { key: 'notifications', label: 'Notifications', icon: 'notifications-outline' },
+  { key: 'notifications', label: 'Notifications', icon: 'notifications-outline', href: '/notifications' },
 ];
 
-// Sample count until notifications are built.
-const SAMPLE_NOTIFICATIONS = 4;
-
-// The app's bottom navigation. Home, Organizations, Recruitment and Events work; the other tabs are
-// built in later steps. The tab for the current screen is highlighted.
+// The app's bottom navigation. The tab for the current screen rises out of the
+// bar as a big blue circle, and the bell shows how many notifications are unread.
 export default function BottomNav() {
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
-  const onHome = pathname === '/home';
+  const unread = useUnreadCount();
 
   return (
     <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
-      {LEFT_TABS.map((tab) => (
-        <TabButton key={tab.key} tab={tab} active={isActive(tab, pathname)} />
-      ))}
-
-      <View style={styles.homeSlot}>
-        <Pressable
-          onPress={() => !onHome && router.replace('/home')}
-          style={[styles.home, !onHome && styles.homeIdle]}
-          accessibilityRole="button"
-          accessibilityLabel="Home"
-          accessibilityState={{ selected: onHome }}>
-          <Ionicons name={onHome ? 'home' : 'home-outline'} size={26} color={onHome ? '#FFFFFF' : '#3549D6'} />
-        </Pressable>
-      </View>
-
-      {RIGHT_TABS.map((tab) => (
+      {TABS.map((tab) => (
         <TabButton
           key={tab.key}
           tab={tab}
           active={isActive(tab, pathname)}
-          badge={tab.key === 'notifications' ? SAMPLE_NOTIFICATIONS : 0}
+          badge={tab.key === 'notifications' ? unread : 0}
         />
       ))}
     </View>
   );
+}
+
+// The student's unread notifications, kept up to date when they read some.
+function useUnreadCount() {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    function refresh() {
+      supabase.auth.getSession().then(({ data }) => {
+        const profileId = data.session?.user.id;
+        if (!profileId) return;
+        fetchUnreadCount(profileId)
+          .then((loaded) => active && setCount(loaded))
+          .catch(() => {
+            // Keep the last count; it's only a badge.
+          });
+      });
+    }
+    refresh();
+    const stop = onReadChanged(refresh);
+    return () => {
+      active = false;
+      stop();
+    };
+  }, []);
+
+  return count;
 }
 
 function isActive(tab: Tab, pathname: string) {
@@ -78,18 +91,18 @@ function TabButton({ tab, active, badge = 0 }: { tab: Tab; active: boolean; badg
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
       accessibilityLabel={badge ? `${tab.label}, ${badge} new` : tab.label}>
-      <View style={[styles.iconWrap, active && styles.iconWrapActive]}>
+      <View style={active ? styles.raised : styles.iconWrap}>
         <Ionicons
           name={active ? (tab.icon.replace('-outline', '') as Tab['icon']) : tab.icon}
-          size={24}
+          size={active ? 26 : 24}
           color={active ? '#FFFFFF' : '#52525B'}
         />
+        {badge > 0 && (
+          <View style={[styles.badge, active && styles.badgeRaised]}>
+            <Text style={styles.badgeText}>{badge > 9 ? '9+' : badge}</Text>
+          </View>
+        )}
       </View>
-      {badge > 0 && (
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>{badge}</Text>
-        </View>
-      )}
     </Pressable>
   );
 }
@@ -120,11 +133,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -4 },
     elevation: 12,
   },
-  tab: { flex: 1, alignItems: 'center', paddingVertical: 2 },
-  iconWrap: { height: 44, width: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22 },
-  iconWrapActive: { backgroundColor: '#3549D6' },
-  homeSlot: { flex: 1, alignItems: 'center' },
-  home: {
+  tab: { flex: 1, alignItems: 'center' },
+  iconWrap: { height: 44, width: 44, alignItems: 'center', justifyContent: 'center' },
+  // The active tab, lifted half out of the bar.
+  raised: {
     marginTop: -30,
     height: 60,
     width: 60,
@@ -140,18 +152,20 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 8,
   },
-  homeIdle: { backgroundColor: '#EEF1FB', shadowOpacity: 0.12 },
   badge: {
     position: 'absolute',
-    top: 0,
-    right: '28%',
+    top: 2,
+    right: 2,
     minWidth: 18,
     height: 18,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 9,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
     backgroundColor: '#EF4444',
-    paddingHorizontal: 4,
+    paddingHorizontal: 3,
   },
+  badgeRaised: { top: -4, right: -4 },
   badgeText: { fontFamily: 'Poppins_600SemiBold', fontSize: 10, color: '#FFFFFF' },
 });

@@ -14,7 +14,7 @@ type Tab = {
 // Home sits in the middle as the big round button.
 const LEFT_TABS: Tab[] = [
   { key: 'organizations', label: 'Organizations', icon: 'people-outline', href: '/organizations' },
-  { key: 'my-org', label: 'My Organizations', icon: 'phone-portrait-outline' },
+  { key: 'recruitment', label: 'Recruitment', icon: 'phone-portrait-outline', href: '/recruitment' },
 ];
 const RIGHT_TABS: Tab[] = [
   { key: 'events', label: 'Events', icon: 'calendar-outline' },
@@ -24,7 +24,7 @@ const RIGHT_TABS: Tab[] = [
 // Sample count until notifications are built.
 const SAMPLE_NOTIFICATIONS = 4;
 
-// The app's bottom navigation. Home and Organizations work; the other tabs are
+// The app's bottom navigation. Home, Organizations and Recruitment work; the other tabs are
 // built in later steps. The tab for the current screen is highlighted.
 export default function BottomNav() {
   const insets = useSafeAreaInsets();

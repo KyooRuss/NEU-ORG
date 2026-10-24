@@ -24,6 +24,7 @@ import RecentAnnouncements from '../components/RecentAnnouncements'
 import { RecentEvents, RecentOrganizations } from '../components/RecentlyAdded'
 import UpcomingEvents from '../components/UpcomingEvents'
 import { countMyPendingEvents, countPendingEvents, countUpcomingEvents } from '../lib/events'
+import { countMembers } from '../lib/members'
 import { fetchMyOrganizationIds } from '../lib/officers'
 import { fetchOrganizations } from '../lib/organizations'
 import type { Profile } from '../lib/profile'
@@ -201,7 +202,7 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
     }
   }, [isAdmin, page, badgeKey])
 
-  // The officer's cards. Only the event posts and applications counts exist so far; the rest show "—".
+  // The officer's cards. A count that fails to load shows as "—".
   useEffect(() => {
     if (isAdmin || page !== 'Dashboard') return
     let cancelled = false
@@ -210,10 +211,11 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
         Promise.all([
           countMyPendingEvents(ids).catch(() => null),
           countMyPendingApplications(ids).catch(() => null),
+          countMembers(ids).catch(() => null),
         ]),
       )
-      .then(([eventPosts, applications]) => {
-        if (!cancelled) setCounts({ eventPosts, applications })
+      .then(([eventPosts, applications, members]) => {
+        if (!cancelled) setCounts({ eventPosts, applications, members })
       })
       .catch(() => {})
     return () => {

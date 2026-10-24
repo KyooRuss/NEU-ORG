@@ -21,13 +21,11 @@ export type OrgListItem = {
 export type Testimonial = { author: string; text: string };
 
 export type OrgDetails = OrgListItem & {
-  department: string;
   vision: string | null;
   mission: string | null;
   roomNumber: string | null;
   telegramContact: string | null;
   facebookContact: string | null;
-  programEligibility: string;
   reasonsToJoin: string[];
   testimonials: Testimonial[];
   photoUrls: string[];
@@ -57,7 +55,7 @@ export async function fetchOrganization(id: string): Promise<OrgDetails | null> 
   const { data: org, error } = await supabase
     .from('organizations')
     .select(
-      'id, name, description, categories, logo_path, recruitment_open, department, vision, mission, room_number, telegram_contact, facebook_contact, program_eligibility, reasons_to_join, testimonials, photo_paths',
+      'id, name, description, categories, logo_path, recruitment_open, vision, mission, room_number, telegram_contact, facebook_contact, reasons_to_join, testimonials, photo_paths',
     )
     .eq('id', id)
     .eq('status', 'active')
@@ -72,13 +70,11 @@ export async function fetchOrganization(id: string): Promise<OrgDetails | null> 
     categories: org.categories ?? [],
     logoUrl: orgMediaUrl(org.logo_path),
     recruitmentOpen: org.recruitment_open ?? false,
-    department: org.department,
     vision: org.vision,
     mission: org.mission,
     roomNumber: org.room_number,
     telegramContact: org.telegram_contact,
     facebookContact: org.facebook_contact,
-    programEligibility: org.program_eligibility,
     reasonsToJoin: ((org.reasons_to_join ?? []) as string[]).filter((reason) => reason.trim()),
     testimonials: ((org.testimonials ?? []) as Testimonial[]).filter((item) => item.text?.trim()),
     photoUrls: ((org.photo_paths ?? []) as string[]).flatMap((path) => orgMediaUrl(path) ?? []),

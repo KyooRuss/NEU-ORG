@@ -169,13 +169,12 @@ export default function OrganizationScreen() {
             </Section>
           )}
 
-          <Section title="Core Information" tab="right">
-            {!!org.vision?.trim() && <Info label="Vision" value={org.vision} />}
-            {!!org.mission?.trim() && <Info label="Mission" value={org.mission} />}
-            <Info label="Department" value={org.department} />
-            <Info label="Who Can Join" value={org.programEligibility} />
-            {org.categories.length > 0 && <Info label="Categories" value={org.categories.join(', ')} />}
-          </Section>
+          {(!!org.vision?.trim() || !!org.mission?.trim()) && (
+            <Section title="Core Information" tab="right">
+              {!!org.vision?.trim() && <Info label="Vision" value={org.vision} />}
+              {!!org.mission?.trim() && <Info label="Mission" value={org.mission} />}
+            </Section>
+          )}
         </View>
 
         {/* Pushed to the bottom of the page even when there's little above it. */}

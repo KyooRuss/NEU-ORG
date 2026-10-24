@@ -17,14 +17,14 @@ const LEFT_TABS: Tab[] = [
   { key: 'recruitment', label: 'Recruitment', icon: 'phone-portrait-outline', href: '/recruitment' },
 ];
 const RIGHT_TABS: Tab[] = [
-  { key: 'events', label: 'Events', icon: 'calendar-outline' },
+  { key: 'events', label: 'Events', icon: 'calendar-outline', href: '/events' },
   { key: 'notifications', label: 'Notifications', icon: 'notifications-outline' },
 ];
 
 // Sample count until notifications are built.
 const SAMPLE_NOTIFICATIONS = 4;
 
-// The app's bottom navigation. Home, Organizations and Recruitment work; the other tabs are
+// The app's bottom navigation. Home, Organizations, Recruitment and Events work; the other tabs are
 // built in later steps. The tab for the current screen is highlighted.
 export default function BottomNav() {
   const insets = useSafeAreaInsets();
@@ -34,7 +34,7 @@ export default function BottomNav() {
   return (
     <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
       {LEFT_TABS.map((tab) => (
-        <TabButton key={tab.key} tab={tab} active={!!tab.href && pathname.startsWith(String(tab.href))} />
+        <TabButton key={tab.key} tab={tab} active={isActive(tab, pathname)} />
       ))}
 
       <View style={styles.homeSlot}>
@@ -52,12 +52,16 @@ export default function BottomNav() {
         <TabButton
           key={tab.key}
           tab={tab}
-          active={false}
+          active={isActive(tab, pathname)}
           badge={tab.key === 'notifications' ? SAMPLE_NOTIFICATIONS : 0}
         />
       ))}
     </View>
   );
+}
+
+function isActive(tab: Tab, pathname: string) {
+  return !!tab.href && pathname.startsWith(String(tab.href));
 }
 
 function TabButton({ tab, active, badge = 0 }: { tab: Tab; active: boolean; badge?: number }) {

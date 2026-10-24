@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useState } from 'react'
 
 import ConfirmDialog from '../components/ConfirmDialog'
 import { OrgNameCell, SampleDataNotice, StatusRow } from '../components/OrganizationsOverview'
+import { withCounts } from '../lib/members'
 import {
   fetchOfficers,
   type Officer,
@@ -60,7 +61,7 @@ export default function TrashPage({ kind }: { kind: TrashKind }) {
 const ORGANIZATIONS: TrashTableProps<Organization> = {
   heading: 'Total Archived Organizations',
   what: 'organizations',
-  load: () => fetchOrganizations('archived'),
+  load: () => fetchOrganizations('archived').then(withCounts),
   isSample: usingSampleData,
   sampleNotice: <SampleDataNotice />,
   minWidth: 'min-w-[880px]',

@@ -24,6 +24,7 @@ import RecentAnnouncements from '../components/RecentAnnouncements'
 import { RecentEvents, RecentOrganizations } from '../components/RecentlyAdded'
 import UpcomingEvents from '../components/UpcomingEvents'
 import { countMyPendingEvents, countPendingEvents, countUpcomingEvents } from '../lib/events'
+import { countMembers } from '../lib/members'
 import { fetchMyOrganizationIds } from '../lib/officers'
 import { fetchOrganizations } from '../lib/organizations'
 import type { Profile } from '../lib/profile'
@@ -37,6 +38,7 @@ import ApprovedEventsPage from './ApprovedEventsPage'
 import EventPostsPage from './EventPostsPage'
 import EventRequestsPage from './EventRequestsPage'
 import FeedbackPage from './FeedbackPage'
+import MembersPage from './MembersPage'
 import MyOrganizationPage from './MyOrganizationPage'
 import ProfessorsPage from './ProfessorsPage'
 import RecruitmentPage from './RecruitmentPage'
@@ -85,12 +87,13 @@ const officerNav: NavItem[] = [
   { label: 'My Organization', icon: Building2 },
   { label: 'Event Posts', icon: CalendarDays },
   { label: 'Recruitment', icon: UserCheck },
+  { label: 'Members', icon: Users },
   { label: 'Announcements', icon: Megaphone },
   { label: 'Feedback', icon: MessageSquareText },
 ]
 
 // The officer pages that exist so far (besides Dashboard).
-const officerPages = ['My Organization', 'Event Posts', 'Recruitment', 'Announcements', 'Feedback']
+const officerPages = ['My Organization', 'Event Posts', 'Recruitment', 'Members', 'Announcements', 'Feedback']
 
 const adminStats: StatCard[] = [
   { key: 'organizations', label: 'Organizations', hint: 'Verified Main Campus Orgs', icon: Users },
@@ -199,7 +202,7 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
     }
   }, [isAdmin, page, badgeKey])
 
-  // The officer's cards. Only the event posts and applications counts exist so far; the rest show "—".
+  // The officer's cards. A count that fails to load shows as "—".
   useEffect(() => {
     if (isAdmin || page !== 'Dashboard') return
     let cancelled = false
@@ -208,10 +211,11 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
         Promise.all([
           countMyPendingEvents(ids).catch(() => null),
           countMyPendingApplications(ids).catch(() => null),
+          countMembers(ids).catch(() => null),
         ]),
       )
-      .then(([eventPosts, applications]) => {
-        if (!cancelled) setCounts({ eventPosts, applications })
+      .then(([eventPosts, applications, members]) => {
+        if (!cancelled) setCounts({ eventPosts, applications, members })
       })
       .catch(() => {})
     return () => {
@@ -424,6 +428,8 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
             <EventPostsPage profileId={profile.id} />
           ) : page === 'Recruitment' ? (
             <RecruitmentPage profileId={profile.id} />
+          ) : page === 'Members' ? (
+            <MembersPage profileId={profile.id} />
           ) : page === 'Announcements' ? (
             <AnnouncementsPage profileId={profile.id} openId={openAnnouncementId} />
           ) : page === 'Feedback' ? (

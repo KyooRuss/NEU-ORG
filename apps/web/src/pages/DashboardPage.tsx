@@ -1,5 +1,4 @@
 import {
-  Bell,
   Building2,
   CalendarDays,
   ChevronDown,
@@ -15,9 +14,10 @@ import {
   UserRound,
   Users,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import MemorandumPanel from '../components/MemorandumPanel'
+import NotificationBell from '../components/NotificationBell'
 import OrganizationsOverview from '../components/OrganizationsOverview'
 import PageBanner, { BannerUserContext } from '../components/PageBanner'
 import RecentAnnouncements from '../components/RecentAnnouncements'
@@ -161,7 +161,11 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
   }
   // While a page shows its banner, the bell sits in the banner instead of the header.
   const [bannerShown, setBannerShown] = useState(false)
-  const bannerUser = useMemo(() => ({ setBannerShown }), [])
+  const bell = (tone: 'dark' | 'light') => (
+    <NotificationBell profileId={profile.id} isAdmin={isAdmin} onOpen={openPage} tone={tone} />
+  )
+  // A new object each render is fine: banners only re-render with the dashboard anyway.
+  const bannerUser = { setBannerShown, bell: bell('light') }
   const [counts, setCounts] = useState<Stats>({})
   // Pending event requests, for the badge on the Events menu.
   const [pendingEvents, setPendingEvents] = useState<number | null>(null)
@@ -375,17 +379,7 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
               <LogOut size={16} aria-hidden="true" />
               Log out
             </button>
-            {page !== ADD_ORGANIZATION && !bannerShown && (
-              // Notifications arrive in a later step.
-              <button
-                type="button"
-                aria-label="Notifications"
-                title="Notifications"
-                className="flex size-10 items-center justify-center rounded-full text-brand-navy transition hover:bg-zinc-200/70"
-              >
-                <Bell size={22} aria-hidden="true" />
-              </button>
-            )}
+            {page !== ADD_ORGANIZATION && !bannerShown && bell('dark')}
           </header>
 
           {EVENT_PAGES.includes(page) ? (

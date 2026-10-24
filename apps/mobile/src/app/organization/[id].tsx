@@ -8,6 +8,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { comingSoon } from '@/components/bottom-nav';
+import PhotoViewerModal from '@/components/photo-viewer-modal';
 import { BRAND_GRADIENT } from '@/constants/brand';
 import { fetchOrganization, type OrgDetails } from '@/lib/organizations';
 
@@ -20,6 +21,8 @@ export default function OrganizationScreen() {
   // undefined while loading, null when it doesn't exist (or was archived).
   const [org, setOrg] = useState<OrgDetails | null | undefined>(undefined);
   const [loadError, setLoadError] = useState(false);
+  // The photo open full screen, if any.
+  const [photoIndex, setPhotoIndex] = useState<number | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -67,7 +70,7 @@ export default function OrganizationScreen() {
   }
 
   const contacts = [
-    { icon: 'location-outline' as const, value: org.roomNumber },
+    { icon: 'location' as const, value: org.roomNumber },
     { icon: 'paper-plane-outline' as const, value: org.telegramContact },
     { icon: 'logo-facebook' as const, value: org.facebookContact },
   ].filter((item) => item.value?.trim());
@@ -75,7 +78,7 @@ export default function OrganizationScreen() {
   return (
     <View style={styles.screen}>
       <StatusBar style="light" />
-      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}>
+      <ScrollView contentContainerStyle={styles.scroll}>
         <LinearGradient {...BRAND_GRADIENT} style={[styles.header, { paddingTop: insets.top + 12 }]}>
           <View style={styles.column}>
             {backButton}
@@ -139,21 +142,22 @@ export default function OrganizationScreen() {
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.photos}>
-                {org.photoUrls.map((url) => (
-                  <Image
+                {org.photoUrls.map((url, index) => (
+                  <Pressable
                     key={url}
-                    source={{ uri: url }}
-                    style={styles.photo}
-                    contentFit="cover"
-                    accessibilityLabel={`Photo from a ${org.name} event`}
-                  />
+                    onPress={() => setPhotoIndex(index)}
+                    style={({ pressed }) => pressed && styles.pressed}
+                    accessibilityRole="imagebutton"
+                    accessibilityLabel={`Open photo ${index + 1} from ${org.name}`}>
+                    <Image source={{ uri: url }} style={styles.photo} contentFit="cover" />
+                  </Pressable>
                 ))}
               </ScrollView>
             </Section>
           )}
 
           {org.testimonials.length > 0 && (
-            <Section title="Members’ Experience" tab>
+            <Section title="Members’ Experience" tab="left">
               <View style={styles.quotes}>
                 {org.testimonials.map((item, index) => (
                   <View key={index} style={styles.quote}>
@@ -165,38 +169,60 @@ export default function OrganizationScreen() {
             </Section>
           )}
 
-          <Section title="Core Information" tab>
+          <Section title="Core Information" tab="right">
             {!!org.vision?.trim() && <Info label="Vision" value={org.vision} />}
             {!!org.mission?.trim() && <Info label="Mission" value={org.mission} />}
             <Info label="Department" value={org.department} />
             <Info label="Who Can Join" value={org.programEligibility} />
             {org.categories.length > 0 && <Info label="Categories" value={org.categories.join(', ')} />}
+          </Section>
+        </View>
+
+        {/* Pushed to the bottom of the page even when there's little above it. */}
+        <LinearGradient {...BRAND_GRADIENT} style={[styles.footer, { paddingBottom: insets.bottom + 20 }]}>
+          <View style={styles.column}>
+            <Text style={styles.footerName}>{org.name}</Text>
             {contacts.length > 0 && (
-              <View style={styles.info}>
-                <Text style={styles.infoLabel}>Contact Details</Text>
+              <View style={styles.contacts}>
                 {contacts.map((item) => (
-                  <View key={item.icon} style={styles.contactRow}>
-                    <Ionicons name={item.icon} size={16} color="#3549D6" />
-                    <Text style={[styles.paragraph, styles.contactText]} selectable>
-                      {item.value}
+                  <View key={item.icon} style={styles.contact}>
+                    <Ionicons name={item.icon} size={20} color="#FFFFFF" />
+                    <Text style={styles.contactText} selectable>
+                      {item.value?.trim()}
                     </Text>
                   </View>
                 ))}
               </View>
             )}
-          </Section>
-        </View>
+          </View>
+        </LinearGradient>
       </ScrollView>
+
+      {photoIndex !== null && (
+        <PhotoViewerModal urls={org.photoUrls} startIndex={photoIndex} onClose={() => setPhotoIndex(null)} />
+      )}
     </View>
   );
 }
 
-// A white card. "tab" puts the title in a blue pill, like the template's
-// Members' Experience and Core Information cards.
-function Section({ title, tab = false, children }: { title: string; tab?: boolean; children: ReactNode }) {
+// A white card. "tab" puts the title in a blue pill instead: on the left like
+// Members' Experience, or tucked against the right edge like Core Information.
+function Section({
+  title,
+  tab,
+  children,
+}: {
+  title: string;
+  tab?: 'left' | 'right';
+  children: ReactNode;
+}) {
   return (
     <View style={styles.card}>
-      {tab ? (
+      {tab === 'right' ? (
+        <LinearGradient {...BRAND_GRADIENT} style={styles.edgeTab}>
+          <Text style={styles.edgeTabText}>{title}</Text>
+        </LinearGradient>
+      ) : tab === 'left' ? (
         <View style={styles.tab}>
           <Text style={styles.tabText}>{title}</Text>
         </View>
@@ -244,7 +270,8 @@ const styles = StyleSheet.create({
   joinButton: { borderRadius: 999, backgroundColor: '#FFFFFF', paddingHorizontal: 20, paddingVertical: 4 },
   joinText: { fontFamily: 'Poppins_600SemiBold', fontSize: 12, color: BLUE },
 
-  body: { paddingTop: 16, gap: 14 },
+  scroll: { flexGrow: 1 },
+  body: { paddingTop: 16, paddingBottom: 28, gap: 14 },
   loading: { marginVertical: 24 },
   notice: {
     borderRadius: 18,
@@ -301,8 +328,31 @@ const styles = StyleSheet.create({
   quoteText: { fontFamily: 'Poppins_400Regular', fontStyle: 'italic', fontSize: 12, lineHeight: 19, color: MUTED },
   quoteAuthor: { marginTop: 6, alignSelf: 'flex-end', fontFamily: 'Poppins_500Medium', fontSize: 11, color: BLUE },
 
-  info: { marginTop: 4, marginBottom: 6 },
-  infoLabel: { fontFamily: 'Poppins_600SemiBold', fontSize: 14, color: INK },
-  contactRow: { marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  contactText: { flex: 1 },
+  // Flush with the card's right edge, rounded only on the left.
+  edgeTab: {
+    alignSelf: 'flex-end',
+    marginRight: -16,
+    marginBottom: 10,
+    borderTopLeftRadius: 999,
+    borderBottomLeftRadius: 999,
+    paddingLeft: 24,
+    paddingRight: 18,
+    paddingVertical: 9,
+  },
+  edgeTabText: { fontFamily: 'Poppins_600SemiBold', fontSize: 15, color: '#FFFFFF' },
+  info: { marginBottom: 10 },
+  infoLabel: { fontFamily: 'Poppins_600SemiBold', fontSize: 17, color: '#0F3550' },
+
+  footer: { marginTop: 'auto', paddingTop: 18 },
+  footerName: { textAlign: 'center', fontFamily: 'Poppins_400Regular', fontSize: 13, color: 'rgba(255, 255, 255, 0.9)' },
+  contacts: {
+    marginTop: 10,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    columnGap: 18,
+    rowGap: 8,
+  },
+  contact: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  contactText: { fontFamily: 'Poppins_400Regular', fontSize: 13, color: '#FFFFFF' },
 });

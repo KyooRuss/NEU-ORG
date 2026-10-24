@@ -1,7 +1,5 @@
+import { orgMediaUrl } from './organizations';
 import { supabase } from './supabase';
-
-// Org logos and photos live in this public storage bucket (same as the web dashboard).
-const MEDIA_BUCKET = 'org-media';
 
 export type RecommendedOrg = {
   id: string;
@@ -49,9 +47,7 @@ export async function fetchRecommendations(limit = 5): Promise<RecommendedOrg[]>
       {
         id: org.id,
         name: org.name,
-        logoUrl: org.logo_path
-          ? supabase.storage.from(MEDIA_BUCKET).getPublicUrl(org.logo_path).data.publicUrl
-          : null,
+        logoUrl: orgMediaUrl(org.logo_path),
         recruitmentOpen: org.recruitment_open ?? false,
         reason: row.reason as string,
       },

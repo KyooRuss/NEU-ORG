@@ -1,0 +1,86 @@
+import { supabase } from './supabase';
+
+// Org logos and photos live in this public storage bucket (same as the web dashboard).
+const MEDIA_BUCKET = 'org-media';
+
+// The public link to a file in the org media bucket, or null when there's no file.
+export function orgMediaUrl(path: string | null): string | null {
+  return path ? supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl : null;
+}
+
+export type OrgListItem = {
+  id: string;
+  name: string;
+  description: string | null;
+  categories: string[];
+  logoUrl: string | null;
+  // Whether students can apply to join right now.
+  recruitmentOpen: boolean;
+};
+
+export type Testimonial = { author: string; text: string };
+
+export type OrgDetails = OrgListItem & {
+  department: string;
+  vision: string | null;
+  mission: string | null;
+  roomNumber: string | null;
+  telegramContact: string | null;
+  facebookContact: string | null;
+  programEligibility: string;
+  reasonsToJoin: string[];
+  testimonials: Testimonial[];
+  photoUrls: string[];
+};
+
+// Every active organization, A to Z. Students can only read active ones.
+export async function fetchOrganizations(): Promise<OrgListItem[]> {
+  const { data, error } = await supabase
+    .from('organizations')
+    .select('id, name, description, categories, logo_path, recruitment_open')
+    .eq('status', 'active')
+    .order('name');
+  if (error) throw error;
+
+  return data.map((org) => ({
+    id: org.id,
+    name: org.name,
+    description: org.description,
+    categories: org.categories ?? [],
+    logoUrl: orgMediaUrl(org.logo_path),
+    recruitmentOpen: org.recruitment_open ?? false,
+  }));
+}
+
+// One organization's full profile, or null if it doesn't exist or was archived.
+export async function fetchOrganization(id: string): Promise<OrgDetails | null> {
+  const { data: org, error } = await supabase
+    .from('organizations')
+    .select(
+      'id, name, description, categories, logo_path, recruitment_open, department, vision, mission, room_number, telegram_contact, facebook_contact, program_eligibility, reasons_to_join, testimonials, photo_paths',
+    )
+    .eq('id', id)
+    .eq('status', 'active')
+    .maybeSingle();
+  if (error) throw error;
+  if (!org) return null;
+
+  return {
+    id: org.id,
+    name: org.name,
+    description: org.description,
+    categories: org.categories ?? [],
+    logoUrl: orgMediaUrl(org.logo_path),
+    recruitmentOpen: org.recruitment_open ?? false,
+    department: org.department,
+    vision: org.vision,
+    mission: org.mission,
+    roomNumber: org.room_number,
+    telegramContact: org.telegram_contact,
+    facebookContact: org.facebook_contact,
+    programEligibility: org.program_eligibility,
+    reasonsToJoin: ((org.reasons_to_join ?? []) as string[]).filter((reason) => reason.trim()),
+    testimonials: ((org.testimonials ?? []) as Testimonial[]).filter((item) => item.text?.trim()),
+    photoUrls: ((org.photo_paths ?? []) as string[]).flatMap((path) => orgMediaUrl(path) ?? []),
+  };
+}

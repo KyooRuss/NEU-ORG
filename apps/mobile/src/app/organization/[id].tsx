@@ -7,10 +7,12 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { comingSoon } from '@/components/bottom-nav';
+import ApplyModal from '@/components/apply-modal';
 import PhotoViewerModal from '@/components/photo-viewer-modal';
 import { BRAND_GRADIENT } from '@/constants/brand';
+import { fetchMyApplyStates, type ApplyState } from '@/lib/applications';
 import { fetchOrganization, type OrgDetails } from '@/lib/organizations';
+import { supabase } from '@/lib/supabase';
 
 // An organization's full profile, opened from the Organizations list. Sections
 // the organization hasn't filled in are left out.
@@ -23,12 +25,26 @@ export default function OrganizationScreen() {
   const [loadError, setLoadError] = useState(false);
   // The photo open full screen, if any.
   const [photoIndex, setPhotoIndex] = useState<number | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  // Whether the student has applied or joined. "none" until it loads.
+  const [applyState, setApplyState] = useState<ApplyState>('none');
+  const [applyOpen, setApplyOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
     fetchOrganization(id)
       .then((loaded) => active && setOrg(loaded))
       .catch(() => active && setLoadError(true));
+    supabase.auth.getSession().then(({ data }) => {
+      const profileId = data.session?.user.id;
+      if (!profileId || !active) return;
+      setUserId(profileId);
+      fetchMyApplyStates(profileId)
+        .then((states) => active && setApplyState(states.get(id) ?? 'none'))
+        .catch(() => {
+          // Keep showing Join; the database still blocks a second application.
+        });
+    });
     return () => {
       active = false;
     };
@@ -92,18 +108,29 @@ export default function OrganizationScreen() {
               <View style={styles.heroText}>
                 <Text style={styles.name}>{org.name}</Text>
                 <View style={styles.heroActions}>
-                  {org.recruitmentOpen ? (
+                  {applyState === 'member' ? (
+                    <View style={styles.recruitingPill}>
+                      <Text style={styles.recruitingText}>You’re a member</Text>
+                    </View>
+                  ) : org.recruitmentOpen || applyState === 'pending' ? (
                     <>
                       <View style={styles.recruitingPill}>
                         <Text style={styles.recruitingText}>Now Recruiting</Text>
                       </View>
-                      <Pressable
-                        onPress={() => comingSoon('Joining')}
-                        style={({ pressed }) => [styles.joinButton, pressed && styles.pressed]}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Join ${org.name}`}>
-                        <Text style={styles.joinText}>Join</Text>
-                      </Pressable>
+                      {applyState === 'pending' ? (
+                        <View style={[styles.joinButton, styles.pendingButton]}>
+                          <Text style={styles.pendingText}>Pending</Text>
+                        </View>
+                      ) : (
+                        <Pressable
+                          onPress={() => setApplyOpen(true)}
+                          disabled={!userId}
+                          style={({ pressed }) => [styles.joinButton, pressed && styles.pressed]}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Join ${org.name}`}>
+                          <Text style={styles.joinText}>Join</Text>
+                        </Pressable>
+                      )}
                     </>
                   ) : (
                     <View style={styles.recruitingPill}>
@@ -197,6 +224,19 @@ export default function OrganizationScreen() {
         </LinearGradient>
       </ScrollView>
 
+      {applyOpen && userId && (
+        <ApplyModal
+          organizationId={org.id}
+          organizationName={org.name}
+          profileId={userId}
+          onApplied={() => {
+            setApplyState('pending');
+            setApplyOpen(false);
+          }}
+          onClose={() => setApplyOpen(false)}
+        />
+      )}
+
       {photoIndex !== null && (
         <PhotoViewerModal urls={org.photoUrls} startIndex={photoIndex} onClose={() => setPhotoIndex(null)} />
       )}
@@ -268,6 +308,8 @@ const styles = StyleSheet.create({
   recruitingText: { fontFamily: 'Poppins_500Medium', fontSize: 11, color: '#FFFFFF' },
   joinButton: { borderRadius: 999, backgroundColor: '#FFFFFF', paddingHorizontal: 20, paddingVertical: 4 },
   joinText: { fontFamily: 'Poppins_600SemiBold', fontSize: 12, color: BLUE },
+  pendingButton: { backgroundColor: '#FEF3C7' },
+  pendingText: { fontFamily: 'Poppins_600SemiBold', fontSize: 12, color: '#B45309' },
 
   scroll: { flexGrow: 1 },
   body: { paddingTop: 16, paddingBottom: 28, gap: 14 },

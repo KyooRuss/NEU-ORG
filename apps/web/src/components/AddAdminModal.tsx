@@ -225,7 +225,7 @@ function CandidateText({ candidate }: { candidate: OfficerCandidate }) {
     <span className="block min-w-0">
       <span className="block truncate font-medium text-brand-navy">{candidate.name}</span>
       <span className="block truncate text-xs text-zinc-500">
-        {[candidate.professor_no ? `Professor ${candidate.professor_no}` : candidate.student_no, candidate.email]
+        {[candidate.is_professor ? 'Professor' : candidate.student_no, candidate.email]
           .filter(Boolean)
           .join(' · ')}
       </span>

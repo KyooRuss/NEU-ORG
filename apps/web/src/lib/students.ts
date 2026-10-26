@@ -85,7 +85,7 @@ export async function fetchStudents(archived = false): Promise<Student[]> {
       .select('id, student_no, full_name, email, year_level, status, archived_at, created_at')
       .eq('role', 'student')
       // Professors have the student role too; they have their own page.
-      .is('professor_no', null)
+      .eq('is_professor', false)
       .filter('archived_at', archived ? 'not.is' : 'is', null)
       .order('student_no', { nullsFirst: false })
 
@@ -125,7 +125,7 @@ async function updateStudent(id: string, changes: Partial<Pick<Student, 'status'
     .update(changes)
     .eq('id', id)
     .eq('role', 'student')
-    .is('professor_no', null)
+    .eq('is_professor', false)
     .select('id')
   if (error) throw new Error(error.message)
   if (data.length === 0) throw notFound()

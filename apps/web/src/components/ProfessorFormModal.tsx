@@ -21,7 +21,6 @@ export default function ProfessorFormModal({
   onSaved: (result: 'linked' | 'invited', email: string) => void
 }) {
   const [email, setEmail] = useState(account?.email ?? '')
-  const [professorNo, setProfessorNo] = useState('')
   const [department, setDepartment] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -29,13 +28,12 @@ export default function ProfessorFormModal({
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     if (!email.trim()) return setError('Enter the professor’s email address.')
-    if (!professorNo.trim()) return setError('Enter the professor number.')
     if (!department) return setError('Choose a department.')
 
     setSaving(true)
     setError(null)
     try {
-      const result = await addProfessor(email, professorNo, department)
+      const result = await addProfessor(email, department)
       onSaved(result, email.trim())
       onClose()
     } catch (caught) {
@@ -88,16 +86,6 @@ export default function ProfessorFormModal({
             </span>
           </label>
         )}
-
-        <label className="text-sm text-zinc-700">
-          Professor No. <span className="text-red-600">*</span>
-          <input
-            value={professorNo}
-            onChange={(event) => setProfessorNo(event.target.value)}
-            placeholder="e.g. P0006"
-            className={fieldClass}
-          />
-        </label>
 
         <label className="text-sm text-zinc-700">
           Department <span className="text-red-600">*</span>

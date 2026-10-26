@@ -34,7 +34,7 @@ const STATUS_OPTIONS = [
 const fieldClass =
   'rounded-full bg-field py-2 text-sm text-zinc-800 outline-none focus:ring-2 focus:ring-brand-blue/40'
 
-// The Students page with Professor No. and Department in place of Student No. and Year Level.
+// The Students page with Department in place of Student No. and Year Level.
 export default function ProfessorsPage() {
   const [professors, setProfessors] = useState<Professor[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -80,7 +80,7 @@ export default function ProfessorsPage() {
   const shown = (professors ?? []).filter(
     (professor) =>
       (!search ||
-        [professor.professor_no, professor.name, professor.email].some((text) =>
+        [professor.name, professor.email].some((text) =>
           text.toLowerCase().includes(search),
         )) &&
       (!filters.status || (professor.status === 'active') === (filters.status === 'active')) &&
@@ -112,7 +112,7 @@ export default function ProfessorsPage() {
                 type="search"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search name, professor no. or email address"
+                placeholder="Search name or email address"
                 className={`w-full pr-4 pl-9 placeholder:text-zinc-500 ${fieldClass}`}
               />
             </label>
@@ -181,13 +181,10 @@ export default function ProfessorsPage() {
         )}
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[860px] text-left text-sm">
+          <table className="w-full min-w-[760px] text-left text-sm">
             <thead className="border-y border-zinc-200 bg-surface text-xs tracking-wide text-zinc-500 uppercase">
               <tr>
-                <th scope="col" className="px-6 py-3 text-center font-medium">
-                  Professor No.
-                </th>
-                <th scope="col" className="px-6 py-3 text-center font-medium">
+                <th scope="col" className="px-6 py-3 font-medium">
                   Name
                 </th>
                 <th scope="col" className="px-6 py-3 text-center font-medium">
@@ -207,9 +204,6 @@ export default function ProfessorsPage() {
             <tbody className="divide-y divide-zinc-100">
               {shown.map((professor) => (
                 <tr key={professor.id} className="transition hover:bg-surface/60">
-                  <td className="px-6 py-4 text-center font-medium text-zinc-700 tabular-nums">
-                    {professor.professor_no}
-                  </td>
                   <td className="px-6 py-4 font-medium text-brand-navy">{professor.name}</td>
                   <td className="px-6 py-4 text-center text-zinc-700">{professor.department ?? '—'}</td>
                   <td className="px-6 py-4 text-center text-zinc-700">{professor.email}</td>
@@ -237,7 +231,7 @@ export default function ProfessorsPage() {
               ))}
               <StatusRow
                 what="professors"
-                columns={6}
+                columns={5}
                 loading={professors === null && !loadError}
                 error={loadError}
                 onRetry={() => setReloadKey((key) => key + 1)}
@@ -265,7 +259,6 @@ export default function ProfessorsPage() {
           <ul className="divide-y divide-zinc-100 border-t border-zinc-200">
             {invites.map((invite) => (
               <li key={invite.email} className="flex flex-wrap items-center gap-x-6 gap-y-1 px-6 py-3 text-sm">
-                <span className="font-medium text-zinc-700 tabular-nums">{invite.professor_no}</span>
                 <span className="min-w-0 flex-1 truncate text-brand-navy">{invite.email}</span>
                 <span className="text-zinc-600">{invite.department}</span>
                 <button

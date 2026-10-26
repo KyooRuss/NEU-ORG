@@ -16,13 +16,13 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import BottomNav from '@/components/bottom-nav';
+import HamiNotice from '@/components/hami-notice';
 import { BRAND_GRADIENT } from '@/constants/brand';
+import { HAMI_IMAGES } from '@/constants/hami';
 import { fetchProfile, type Profile } from '@/lib/profile';
 import { fetchRecommendations, type RecommendedOrg } from '@/lib/recommendations';
 import { supabase } from '@/lib/supabase';
 
-// login-hami.png is 1080 x 798. A dashboard pose will replace it later.
-const HAMI_ASPECT = 1080 / 798;
 // Room at the bottom of the page for the navigation bar.
 const NAV_SPACE = 110;
 
@@ -37,7 +37,8 @@ export default function HomeScreen() {
   const [loadError, setLoadError] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const hamiWidth = Math.min(Math.max(width * 0.36, 120), 170);
+  // happy-hami.png is square (1254 x 1254).
+  const hamiSize = Math.min(Math.max(width * 0.3, 110), 140);
 
   useEffect(() => {
     let active = true;
@@ -92,8 +93,8 @@ export default function HomeScreen() {
 
             <View style={styles.hamiRow}>
               <Image
-                source={require('@/assets/images/login-hami.png')}
-                style={{ width: hamiWidth, height: hamiWidth / HAMI_ASPECT }}
+                source={HAMI_IMAGES.happy}
+                style={{ width: hamiSize, height: hamiSize }}
                 contentFit="contain"
                 accessibilityLabel="Hami, the NEU-ORG mascot"
               />
@@ -118,10 +119,16 @@ export default function HomeScreen() {
               <ActivityIndicator style={styles.loading} color="#3549D6" />
             )}
             {loadError && (
-              <Notice text="Recommendations couldn't load. Check your connection and open the app again." />
+              <HamiNotice
+                mood="worried"
+                text="Recommendations couldn't load. Check your connection and open the app again."
+              />
             )}
             {recommendations?.length === 0 && (
-              <Notice text="No matches yet. As more organizations join NEU-ORG, recommendations based on your interests will show up here." />
+              <HamiNotice
+                mood="crying"
+                text="No matches yet. As more organizations join NEU-ORG, recommendations based on your interests will show up here."
+              />
             )}
             <View style={styles.cards}>
               {recommendations?.map((org) => (
@@ -131,7 +138,10 @@ export default function HomeScreen() {
 
             <Text style={[styles.sectionTitle, styles.nextSection]}>My Organizations</Text>
             <Text style={styles.sectionSubtitle}>Organizations you’ve joined</Text>
-            <Notice text="Organizations you join will appear here, with their latest events and announcements." />
+            <HamiNotice
+              mood="sleepy"
+              text="Organizations you join will appear here, with their latest events and announcements."
+            />
           </View>
         </View>
       </ScrollView>
@@ -181,14 +191,6 @@ function OrgCard({ org }: { org: RecommendedOrg }) {
           <Text style={styles.openText}>Open</Text>
         </View>
       )}
-    </View>
-  );
-}
-
-function Notice({ text }: { text: string }) {
-  return (
-    <View style={styles.notice}>
-      <Text style={styles.noticeText}>{text}</Text>
     </View>
   );
 }
@@ -274,17 +276,6 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   openText: { fontFamily: 'Poppins_500Medium', fontSize: 11, color: '#15803D' },
-
-  notice: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: '#D4D4D8',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  noticeText: { fontFamily: 'Poppins_400Regular', fontSize: 12, lineHeight: 18, color: MUTED },
 
   menu: {
     position: 'absolute',

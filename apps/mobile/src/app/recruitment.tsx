@@ -18,7 +18,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import ApplyModal from '@/components/apply-modal';
 import BottomNav from '@/components/bottom-nav';
+import HamiNotice from '@/components/hami-notice';
 import { BRAND_GRADIENT } from '@/constants/brand';
+import type { HamiMood } from '@/constants/hami';
 import { fetchMyApplyStates, type ApplyState } from '@/lib/applications';
 import { fetchOrganizations, type OrgListItem } from '@/lib/organizations';
 import { supabase } from '@/lib/supabase';
@@ -90,10 +92,14 @@ export default function RecruitmentScreen() {
     );
   }, [orgs, search]);
 
-  function emptyText() {
-    if (loadError) return "Organizations couldn't load. Check your connection and pull down to try again.";
-    if (orgs?.length === 0) return 'No organizations are recruiting right now. Check back soon!';
-    return 'No organizations match your search.';
+  function emptyState(): { mood: HamiMood; text: string } {
+    if (loadError) {
+      return { mood: 'worried', text: "Organizations couldn't load. Check your connection and pull down to try again." };
+    }
+    if (orgs?.length === 0) {
+      return { mood: 'sleepy', text: 'No organizations are recruiting right now. Check back soon!' };
+    }
+    return { mood: 'worried', text: 'No organizations match your search.' };
   }
 
   return (
@@ -144,9 +150,7 @@ export default function RecruitmentScreen() {
             <ActivityIndicator style={styles.loading} color="#3549D6" />
           ) : (
             <View style={styles.column}>
-              <View style={styles.notice}>
-                <Text style={styles.noticeText}>{emptyText()}</Text>
-              </View>
+              <HamiNotice {...emptyState()} />
             </View>
           )
         }
@@ -275,16 +279,6 @@ const styles = StyleSheet.create({
 
   list: { flex: 1 },
   loading: { marginVertical: 24 },
-  notice: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: '#D4D4D8',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  noticeText: { fontFamily: 'Poppins_400Regular', fontSize: 12, lineHeight: 18, color: MUTED },
 
   row: {
     flexDirection: 'row',

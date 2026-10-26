@@ -17,8 +17,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import BottomNav from '@/components/bottom-nav';
 import EventCard from '@/components/event-card';
+import HamiNotice from '@/components/hami-notice';
 import OptionPickerModal from '@/components/option-picker-modal';
 import { BRAND_GRADIENT } from '@/constants/brand';
+import type { HamiMood } from '@/constants/hami';
 import {
   audienceLabel,
   fetchEventContext,
@@ -144,12 +146,16 @@ export default function EventsScreen() {
     ].filter((section) => section.data.length > 0);
   }, [events, context, search, department]);
 
-  function emptyText() {
-    if (loadError) return "Events couldn't load. Check your connection and pull down to try again.";
-    if (events?.length === 0) {
-      return when === 'upcoming' ? 'No upcoming events yet. Check back soon!' : 'No past events yet.';
+  function emptyState(): { mood: HamiMood; text: string } {
+    if (loadError) {
+      return { mood: 'worried', text: "Events couldn't load. Check your connection and pull down to try again." };
     }
-    return 'No events match your search.';
+    if (events?.length === 0) {
+      return when === 'upcoming'
+        ? { mood: 'crying', text: 'No upcoming events yet. Check back soon!' }
+        : { mood: 'sleepy', text: 'No past events yet.' };
+    }
+    return { mood: 'worried', text: 'No events match your search.' };
   }
 
   function switchTo(next: EventWhen) {
@@ -243,9 +249,7 @@ export default function EventsScreen() {
             <ActivityIndicator style={styles.loading} color="#3549D6" />
           ) : (
             <View style={styles.column}>
-              <View style={styles.notice}>
-                <Text style={styles.noticeText}>{emptyText()}</Text>
-              </View>
+              <HamiNotice {...emptyState()} style={styles.notice} />
             </View>
           )
         }
@@ -276,7 +280,6 @@ export default function EventsScreen() {
 }
 
 const INK = '#1E2440';
-const MUTED = '#71717A';
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#EEF1FB' },
@@ -333,15 +336,5 @@ const styles = StyleSheet.create({
   },
   item: { marginBottom: 12 },
   loading: { marginVertical: 24 },
-  notice: {
-    marginTop: 12,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: '#D4D4D8',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  noticeText: { fontFamily: 'Poppins_400Regular', fontSize: 12, lineHeight: 18, color: MUTED },
+  notice: { marginTop: 12 },
 });

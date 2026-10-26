@@ -7,7 +7,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  Pressable,
   RefreshControl,
   StyleSheet,
   Text,
@@ -18,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import ApplyModal from '@/components/apply-modal';
 import BottomNav from '@/components/bottom-nav';
+import Pressable from '@/components/pressable';
 import { BRAND_GRADIENT } from '@/constants/brand';
 import { fetchMyApplyStates, type ApplyState } from '@/lib/applications';
 import { fetchOrganizations, type OrgListItem } from '@/lib/organizations';

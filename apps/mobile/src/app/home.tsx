@@ -6,7 +6,6 @@ import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -16,6 +15,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import BottomNav from '@/components/bottom-nav';
+import Pressable from '@/components/pressable';
 import { BRAND_GRADIENT } from '@/constants/brand';
 import { HAMI_IMAGES, HAMI_MOOD_BY_KIND, type HamiMood } from '@/constants/hami';
 import {
@@ -234,9 +234,14 @@ export default function HomeScreen() {
   );
 }
 
+// Opens the organization's profile, like the cards in the Organizations list.
 function OrgCard({ org }: { org: RecommendedOrg }) {
   return (
-    <View style={styles.card}>
+    <Pressable
+      onPress={() => router.push({ pathname: '/organization/[id]', params: { id: org.id } })}
+      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+      accessibilityRole="button"
+      accessibilityLabel={`${org.name}, view details`}>
       <Image
         source={org.logoUrl ? { uri: org.logoUrl } : require('@/assets/images/neu-org-logo.png')}
         style={styles.logo}
@@ -256,7 +261,8 @@ function OrgCard({ org }: { org: RecommendedOrg }) {
           <Text style={styles.openText}>Open</Text>
         </View>
       )}
-    </View>
+      <Ionicons name="chevron-forward" size={18} color="#A1A1AA" style={styles.chevron} />
+    </Pressable>
   );
 }
 
@@ -350,6 +356,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   openText: { fontFamily: 'Poppins_500Medium', fontSize: 11, color: '#15803D' },
+  chevron: { marginLeft: 6 },
 
   notice: {
     borderRadius: 18,

@@ -1,6 +1,7 @@
 import { Image } from 'expo-image';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
+import Pressable from '@/components/pressable';
 import type { OrgListItem } from '@/lib/organizations';
 
 // One organization in the Organizations list: logo, name, categories, a short

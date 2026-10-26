@@ -4,11 +4,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import ApplyModal from '@/components/apply-modal';
 import PhotoViewerModal from '@/components/photo-viewer-modal';
+import Pressable from '@/components/pressable';
 import { BRAND_GRADIENT } from '@/constants/brand';
 import { fetchMyApplyStates, type ApplyState } from '@/lib/applications';
 import { fetchOrganization, type OrgDetails } from '@/lib/organizations';

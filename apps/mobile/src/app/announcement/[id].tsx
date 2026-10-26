@@ -4,9 +4,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import Pressable from '@/components/pressable';
 import { BRAND_GRADIENT } from '@/constants/brand';
 import { formatEventDate } from '@/lib/events';
 import { fetchAnnouncement, type Announcement } from '@/lib/notifications';

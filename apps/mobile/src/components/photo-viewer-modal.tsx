@@ -1,10 +1,10 @@
+import Pressable from '@/components/pressable';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useState } from 'react';
 import {
   FlatList,
   Modal,
-  Pressable,
   StyleSheet,
   Text,
   useWindowDimensions,

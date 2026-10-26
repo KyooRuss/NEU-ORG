@@ -4,9 +4,9 @@ import { fetchEventContext, formatEventDate, formatEventTime } from './events';
 import { orgMediaUrl } from './organizations';
 import { supabase } from './supabase';
 
-// Notifications aren't stored. They're built from announcements, approved
-// events, application results and event times; the notification_reads table
-// only remembers which ones the student has read.
+// Notifications aren't stored. They're built from memorandums, announcements,
+// approved events, application results and event times; the
+// notification_reads table only remembers which ones the student has read.
 
 // How far back the feed goes.
 const FEED_DAYS = 30;
@@ -14,7 +14,7 @@ const FEED_DAYS = 30;
 const RATE_DAYS = 7;
 const DAY = 24 * 60 * 60 * 1000;
 
-export type NotificationKind = 'announcement' | 'event' | 'accepted' | 'declined' | 'reminder' | 'rate';
+export type NotificationKind = 'memo' | 'announcement' | 'event' | 'accepted' | 'declined' | 'reminder' | 'rate';
 
 export type NotificationItem = {
   // Unique, and what's saved when it's read, e.g. "announcement:<id>".
@@ -26,12 +26,13 @@ export type NotificationItem = {
   body: string;
   at: Date;
   // What opens when it's tapped.
-  target: { event: string } | { organization: string } | { announcement: string };
+  target: { event: string } | { organization: string } | { announcement: string } | { memo: string };
 };
 
 // The screen a notification opens when it's tapped, or null if there's
 // nothing to open (an application whose organization was deleted).
 export function notificationHref(item: NotificationItem): Href | null {
+  if ('memo' in item.target) return '/memos';
   if ('event' in item.target) return { pathname: '/event/[id]', params: { id: item.target.event } };
   if ('announcement' in item.target) {
     return { pathname: '/announcement/[id]', params: { id: item.target.announcement } };
@@ -101,10 +102,26 @@ export async function fetchNotifications(profileId: string): Promise<Notificatio
         )
     : null;
 
-  const [a, e, d, s, r] = await Promise.all([announcements, newEvents, decisions, soon, ended]);
-  for (const result of [a, e, d, s, r]) if (result?.error) throw result.error;
+  // Memorandums admins posted, for everyone.
+  const memos = supabase.from('memorandums').select('id, title, created_at').gte('created_at', since);
+
+  const [m, a, e, d, s, r] = await Promise.all([memos, announcements, newEvents, decisions, soon, ended]);
+  for (const result of [m, a, e, d, s, r]) if (result?.error) throw result.error;
 
   const items: NotificationItem[] = [];
+
+  for (const row of (m.data ?? []) as { id: string; title: string; created_at: string }[]) {
+    items.push({
+      // Same key as on the web, so reading it in one place counts for both.
+      key: `memo:${row.id}`,
+      kind: 'memo',
+      mine: false,
+      title: `New memorandum: ${row.title}`,
+      body: 'Tap to read it.',
+      at: new Date(row.created_at),
+      target: { memo: row.id },
+    });
+  }
 
   for (const row of (a.data ?? []) as unknown as {
     id: string;

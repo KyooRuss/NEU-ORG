@@ -464,16 +464,22 @@ export default function DashboardPage({ profile }: { profile: Profile }) {
                   </div>
                 </div>
               ) : (
-                <div className="mt-8 grid gap-6 lg:grid-cols-[3fr_2fr] lg:gap-10">
-                  <UpcomingEvents profileId={profile.id} />
-                  <RecentAnnouncements
-                    profileId={profile.id}
-                    onOpen={(announcement) => {
-                      openPage('Announcements')
-                      setOpenAnnouncementId(announcement.id)
-                    }}
-                  />
-                </div>
+                <>
+                  <div className="mt-8 grid gap-6 lg:grid-cols-[3fr_2fr] lg:gap-10">
+                    <UpcomingEvents profileId={profile.id} />
+                    <RecentAnnouncements
+                      profileId={profile.id}
+                      onOpen={(announcement) => {
+                        openPage('Announcements')
+                        setOpenAnnouncementId(announcement.id)
+                      }}
+                    />
+                  </div>
+                  {/* Officers can read the memorandums OSAS posts, but not change them. */}
+                  <div className="mt-8">
+                    <MemorandumPanel readOnly />
+                  </div>
+                </>
               )}
             </>
           )}

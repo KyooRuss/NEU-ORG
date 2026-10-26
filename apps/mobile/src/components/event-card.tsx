@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
+import Pressable from '@/components/pressable';
 import { formatEventDate, formatEventTime, type EventItem } from '@/lib/events';
 
 type Props = {

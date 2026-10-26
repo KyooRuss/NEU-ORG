@@ -1,5 +1,6 @@
+import Pressable from '@/components/pressable';
 import { Ionicons } from '@expo/vector-icons';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions } from 'react-native';
+import { Modal, ScrollView, StyleSheet, Text, useWindowDimensions } from 'react-native';
 
 type Option<T> = { value: T; label: string };
 

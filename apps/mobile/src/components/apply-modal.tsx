@@ -4,7 +4,6 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -12,6 +11,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import Pressable from '@/components/pressable';
 import { applyToOrganization, fetchApplicantInfo, normalizeLink, type ApplicantInfo } from '@/lib/applications';
 
 type Props = {

@@ -6,7 +6,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  Pressable,
   RefreshControl,
   StyleSheet,
   Text,
@@ -18,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BottomNav from '@/components/bottom-nav';
 import OptionPickerModal from '@/components/option-picker-modal';
 import OrgListCard from '@/components/org-list-card';
+import Pressable from '@/components/pressable';
 import { BRAND_GRADIENT } from '@/constants/brand';
 import { fetchOrganizations, type OrgListItem } from '@/lib/organizations';
 import { supabase } from '@/lib/supabase';

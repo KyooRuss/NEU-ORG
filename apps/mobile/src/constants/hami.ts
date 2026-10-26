@@ -16,6 +16,7 @@ export const HAMI_IMAGES: Record<HamiMood, ImageSource> = {
 };
 
 export const HAMI_MOOD_BY_KIND: Record<NotificationKind, HamiMood> = {
+  memo: 'happy',
   announcement: 'happy',
   event: 'happy',
   accepted: 'happy',

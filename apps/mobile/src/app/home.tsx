@@ -15,9 +15,11 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import BottomNav from '@/components/bottom-nav';
+import MemoRow from '@/components/memo-row';
 import Pressable from '@/components/pressable';
 import { BRAND_GRADIENT } from '@/constants/brand';
 import { HAMI_IMAGES, HAMI_MOOD_BY_KIND, type HamiMood } from '@/constants/hami';
+import { fetchMemorandums, type Memorandum } from '@/lib/memorandums';
 import {
   fetchNotifications,
   fetchReadKeys,
@@ -50,8 +52,12 @@ function hamiSays(news: HamiNews): { mood: HamiMood; title: string | null; text:
   return { mood: HAMI_MOOD_BY_KIND[news.item.kind], title: news.item.title, text: news.item.body };
 }
 
-// The student dashboard. Recommended For You is live (recommend_for_me() in the
-// database); My Organizations is a placeholder until memberships are shown.
+// How many memorandums Home previews; "See all" opens the rest.
+const MEMO_PREVIEW = 2;
+
+// The student dashboard. Memorandums shows the newest ones admins posted;
+// Recommended For You is live (recommend_for_me() in the database); My
+// Organizations is a placeholder until memberships are shown.
 // Styled with StyleSheet so every spacing and color applies the same on web and phones.
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -62,6 +68,8 @@ export default function HomeScreen() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [news, setNews] = useState<HamiNews>({ status: 'loading' });
+  // Empty while loading or if they can't load; the section only shows when there are some.
+  const [memos, setMemos] = useState<Memorandum[]>([]);
 
   // The Hami images are square (about 1254 x 1254).
   const hamiSize = Math.min(Math.max(width * 0.3, 110), 140);
@@ -83,6 +91,11 @@ export default function HomeScreen() {
       fetchRecommendations()
         .then((loaded) => active && setRecommendations(loaded))
         .catch(() => active && setLoadError(true));
+      fetchMemorandums(MEMO_PREVIEW)
+        .then((loaded) => active && setMemos(loaded))
+        .catch(() => {
+          // Leave the section hidden; the Memorandums screen shows the error.
+        });
     });
 
     return () => {
@@ -186,7 +199,29 @@ export default function HomeScreen() {
 
         <View style={styles.panel}>
           <View style={styles.column}>
-            <Text style={styles.sectionTitle}>Recommended For You</Text>
+            {memos.length > 0 && (
+              <>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>Memorandums</Text>
+                  <Pressable
+                    onPress={() => router.push('/memos')}
+                    hitSlop={8}
+                    style={({ pressed }) => [styles.seeAll, pressed && styles.pressed]}
+                    accessibilityRole="button"
+                    accessibilityLabel="See all memorandums">
+                    <Text style={styles.seeAllText}>See all</Text>
+                    <Ionicons name="chevron-forward" size={14} color="#3549D6" />
+                  </Pressable>
+                </View>
+                <View style={styles.cards}>
+                  {memos.map((memo) => (
+                    <MemoRow key={memo.id} memo={memo} />
+                  ))}
+                </View>
+              </>
+            )}
+
+            <Text style={[styles.sectionTitle, memos.length > 0 && styles.nextSection]}>Recommended For You</Text>
             <Text style={styles.sectionSubtitle}>Based on your profile and interests</Text>
 
             {recommendations === null && !loadError && (
@@ -326,6 +361,9 @@ const styles = StyleSheet.create({
   sectionTitle: { fontFamily: 'Poppins_600SemiBold', fontSize: 20, color: INK },
   sectionSubtitle: { marginBottom: 14, fontFamily: 'Poppins_400Regular', fontSize: 12, color: MUTED },
   nextSection: { marginTop: 28 },
+  sectionHeader: { marginBottom: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  seeAll: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  seeAllText: { fontFamily: 'Poppins_600SemiBold', fontSize: 13, color: '#3549D6' },
   loading: { marginVertical: 24 },
 
   cards: { gap: 12 },

@@ -21,7 +21,9 @@ const fieldClass =
 
 type Dialog = { kind: 'add' } | { kind: 'edit' | 'delete'; memo: Memorandum } | null
 
-export default function MemorandumPanel() {
+// The admin's list of memorandums, with Add, Edit and Delete. With `readOnly`
+// (the officer dashboard) it only lists them and opens their files.
+export default function MemorandumPanel({ readOnly = false }: { readOnly?: boolean }) {
   const [memos, setMemos] = useState<Memorandum[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -68,17 +70,19 @@ export default function MemorandumPanel() {
     <section className="rounded-xl bg-white p-6 shadow-md ring-1 ring-zinc-200">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-300 pb-3">
         <h2 className="text-lg font-semibold text-brand-navy">Memorandum</h2>
-        <button
-          type="button"
-          onClick={() => setDialog({ kind: 'add' })}
-          className="flex items-center gap-1.5 rounded-md bg-[#2f80ed] px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-brand-blue"
-        >
-          <Plus size={14} aria-hidden="true" />
-          Add Memo
-        </button>
+        {!readOnly && (
+          <button
+            type="button"
+            onClick={() => setDialog({ kind: 'add' })}
+            className="flex items-center gap-1.5 rounded-md bg-[#2f80ed] px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-brand-blue"
+          >
+            <Plus size={14} aria-hidden="true" />
+            Add Memo
+          </button>
+        )}
       </div>
 
-      {sample && (
+      {sample && !readOnly && (
         <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           <strong className="font-semibold">Showing sample data.</strong> The memorandums table isn’t
           in Supabase yet, so uploads here only last until you reload the page. Apply the
@@ -113,20 +117,24 @@ export default function MemorandumPanel() {
               >
                 View
               </button>
-              <button
-                type="button"
-                onClick={() => setDialog({ kind: 'edit', memo })}
-                className="border-b border-zinc-400/60 text-zinc-600 transition hover:text-zinc-900"
-              >
-                Edit
-              </button>
-              <button
-                type="button"
-                onClick={() => setDialog({ kind: 'delete', memo })}
-                className="border-b border-red-400/60 text-red-500 transition hover:text-red-700"
-              >
-                Delete
-              </button>
+              {!readOnly && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setDialog({ kind: 'edit', memo })}
+                    className="border-b border-zinc-400/60 text-zinc-600 transition hover:text-zinc-900"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDialog({ kind: 'delete', memo })}
+                    className="border-b border-red-400/60 text-red-500 transition hover:text-red-700"
+                  >
+                    Delete
+                  </button>
+                </>
+              )}
             </div>
           </li>
         ))}
@@ -143,6 +151,8 @@ export default function MemorandumPanel() {
             </span>
           ) : memos === null ? (
             'Loading…'
+          ) : readOnly ? (
+            'No memorandums yet.'
           ) : (
             'No memorandums yet. Click “Add Memo” to upload the first one.'
           )}

@@ -24,6 +24,7 @@ import { supabase } from '@/lib/supabase';
 const NAV_SPACE = 110;
 
 const ICONS: Record<NotificationKind, { name: keyof typeof Ionicons.glyphMap; color: string; background: string }> = {
+  memo: { name: 'document-text-outline', color: '#0F766E', background: '#CCFBF1' },
   announcement: { name: 'megaphone-outline', color: '#7E22CE', background: '#F3E8FF' },
   event: { name: 'calendar-outline', color: '#3549D6', background: '#E8EDFD' },
   accepted: { name: 'checkmark-circle-outline', color: '#15803D', background: '#DCFCE7' },
@@ -32,8 +33,8 @@ const ICONS: Record<NotificationKind, { name: keyof typeof Ionicons.glyphMap; co
   rate: { name: 'star-outline', color: '#B45309', background: '#FEF3C7' },
 };
 
-// Announcements, new events, application results and reminders. Ones from the
-// student's organizations come first.
+// Memorandums, announcements, new events, application results and reminders.
+// Memorandums come first, then ones from the student's organizations.
 // Styled with StyleSheet so every spacing and color applies the same on web and phones.
 export default function NotificationsScreen() {
   const insets = useSafeAreaInsets();
@@ -88,9 +89,12 @@ export default function NotificationsScreen() {
   );
 
   const sections = useMemo(() => {
-    const mine = (items ?? []).filter((item) => item.mine);
-    const others = (items ?? []).filter((item) => !item.mine);
+    // Memorandums aren't from an organization, so they get their own group on top.
+    const memos = (items ?? []).filter((item) => item.kind === 'memo');
+    const mine = (items ?? []).filter((item) => item.kind !== 'memo' && item.mine);
+    const others = (items ?? []).filter((item) => item.kind !== 'memo' && !item.mine);
     return [
+      { title: 'Memorandums', data: memos },
       { title: 'My Organizations', data: mine },
       { title: 'Other Organizations', data: others },
     ].filter((section) => section.data.length > 0);

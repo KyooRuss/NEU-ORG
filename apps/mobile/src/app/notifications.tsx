@@ -12,6 +12,7 @@ import {
   fetchNotifications,
   fetchReadKeys,
   markRead,
+  notificationHref,
   timeAgo,
   type NotificationItem,
   type NotificationKind,
@@ -105,13 +106,8 @@ export default function NotificationsScreen() {
 
   function open(item: NotificationItem) {
     setRead([item.key]);
-    if ('event' in item.target) {
-      router.push({ pathname: '/event/[id]', params: { id: item.target.event } });
-    } else if ('announcement' in item.target) {
-      router.push({ pathname: '/announcement/[id]', params: { id: item.target.announcement } });
-    } else if (item.target.organization) {
-      router.push({ pathname: '/organization/[id]', params: { id: item.target.organization } });
-    }
+    const href = notificationHref(item);
+    if (href) router.push(href);
   }
 
   function emptyText() {

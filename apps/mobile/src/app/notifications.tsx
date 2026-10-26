@@ -7,13 +7,12 @@ import { ActivityIndicator, Pressable, RefreshControl, SectionList, StyleSheet, 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import BottomNav from '@/components/bottom-nav';
-import HamiNotice from '@/components/hami-notice';
 import { BRAND_GRADIENT } from '@/constants/brand';
-import type { HamiMood } from '@/constants/hami';
 import {
   fetchNotifications,
   fetchReadKeys,
   markRead,
+  notificationHref,
   timeAgo,
   type NotificationItem,
   type NotificationKind,
@@ -107,23 +106,13 @@ export default function NotificationsScreen() {
 
   function open(item: NotificationItem) {
     setRead([item.key]);
-    if ('event' in item.target) {
-      router.push({ pathname: '/event/[id]', params: { id: item.target.event } });
-    } else if ('announcement' in item.target) {
-      router.push({ pathname: '/announcement/[id]', params: { id: item.target.announcement } });
-    } else if (item.target.organization) {
-      router.push({ pathname: '/organization/[id]', params: { id: item.target.organization } });
-    }
+    const href = notificationHref(item);
+    if (href) router.push(href);
   }
 
-  function emptyState(): { mood: HamiMood; text: string } {
-    if (loadError) {
-      return { mood: 'worried', text: "Notifications couldn't load. Check your connection and pull down to try again." };
-    }
-    return {
-      mood: 'sleepy',
-      text: 'No notifications yet. Announcements and new events from organizations will show up here.',
-    };
+  function emptyText() {
+    if (loadError) return "Notifications couldn't load. Check your connection and pull down to try again.";
+    return 'No notifications yet. Announcements and new events from organizations will show up here.';
   }
 
   return (
@@ -180,7 +169,9 @@ export default function NotificationsScreen() {
             <ActivityIndicator style={styles.loading} color="#3549D6" />
           ) : (
             <View style={styles.column}>
-              <HamiNotice {...emptyState()} style={styles.notice} />
+              <View style={styles.notice}>
+                <Text style={styles.noticeText}>{emptyText()}</Text>
+              </View>
             </View>
           )
         }
@@ -232,6 +223,7 @@ function NotificationRow({ item, unread, first, last, onPress }: RowProps) {
 }
 
 const INK = '#1E2440';
+const MUTED = '#71717A';
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#EEF1FB' },
@@ -264,7 +256,17 @@ const styles = StyleSheet.create({
     color: '#8A8FA3',
   },
   loading: { marginVertical: 24 },
-  notice: { marginTop: 16 },
+  notice: {
+    marginTop: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: '#D4D4D8',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  noticeText: { fontFamily: 'Poppins_400Regular', fontSize: 12, lineHeight: 18, color: MUTED },
 
   row: {
     flexDirection: 'row',

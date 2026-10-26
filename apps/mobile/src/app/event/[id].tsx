@@ -10,7 +10,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FeedbackModal from '@/components/feedback-modal';
 import PhotoViewerModal from '@/components/photo-viewer-modal';
 import { BRAND_GRADIENT } from '@/constants/brand';
-import { HAMI_IMAGES } from '@/constants/hami';
 import {
   audienceLabel,
   fetchEvent,
@@ -180,12 +179,7 @@ export default function EventScreen() {
           rated !== null &&
           (rated ? (
             <View style={styles.thanks}>
-              <Image
-                source={HAMI_IMAGES.happy}
-                style={styles.thanksHami}
-                contentFit="contain"
-                accessibilityLabel="Hami looks happy"
-              />
+              <Ionicons name="checkmark-circle" size={20} color="#15803D" />
               <Text style={styles.thanksText}>Thanks for your feedback!</Text>
             </View>
           ) : (
@@ -326,8 +320,7 @@ const styles = StyleSheet.create({
     gap: 8,
     borderRadius: 14,
     backgroundColor: '#DCFCE7',
-    paddingVertical: 10,
+    paddingVertical: 14,
   },
-  thanksHami: { width: 40, height: 40 },
   thanksText: { fontFamily: 'Poppins_500Medium', fontSize: 13, color: '#15803D' },
 });

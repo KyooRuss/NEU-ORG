@@ -1,3 +1,5 @@
+import type { Href } from 'expo-router';
+
 import { fetchEventContext, formatEventDate, formatEventTime } from './events';
 import { orgMediaUrl } from './organizations';
 import { supabase } from './supabase';
@@ -26,6 +28,19 @@ export type NotificationItem = {
   // What opens when it's tapped.
   target: { event: string } | { organization: string } | { announcement: string };
 };
+
+// The screen a notification opens when it's tapped, or null if there's
+// nothing to open (an application whose organization was deleted).
+export function notificationHref(item: NotificationItem): Href | null {
+  if ('event' in item.target) return { pathname: '/event/[id]', params: { id: item.target.event } };
+  if ('announcement' in item.target) {
+    return { pathname: '/announcement/[id]', params: { id: item.target.announcement } };
+  }
+  if (item.target.organization) {
+    return { pathname: '/organization/[id]', params: { id: item.target.organization } };
+  }
+  return null;
+}
 
 type OrgRef = { id: string; name: string } | null;
 

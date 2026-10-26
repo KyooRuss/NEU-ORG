@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -16,15 +16,39 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import BottomNav from '@/components/bottom-nav';
-import HamiNotice from '@/components/hami-notice';
 import { BRAND_GRADIENT } from '@/constants/brand';
-import { HAMI_IMAGES } from '@/constants/hami';
+import { HAMI_IMAGES, HAMI_MOOD_BY_KIND, type HamiMood } from '@/constants/hami';
+import {
+  fetchNotifications,
+  fetchReadKeys,
+  markRead,
+  notificationHref,
+  onReadChanged,
+  type NotificationItem,
+} from '@/lib/notifications';
 import { fetchProfile, type Profile } from '@/lib/profile';
 import { fetchRecommendations, type RecommendedOrg } from '@/lib/recommendations';
 import { supabase } from '@/lib/supabase';
 
 // Room at the bottom of the page for the navigation bar.
 const NAV_SPACE = 110;
+
+// What Hami is telling the student: their newest unread notification, or
+// null when everything has been read.
+type HamiNews = { status: 'loading' } | { status: 'error' } | { status: 'ready'; item: NotificationItem | null };
+
+function hamiSays(news: HamiNews): { mood: HamiMood; title: string | null; text: string } {
+  if (news.status === 'loading') {
+    return { mood: 'happy', title: null, text: 'Check out the latest events from your organizations!' };
+  }
+  if (news.status === 'error') {
+    return { mood: 'worried', title: null, text: 'I couldn’t check your notifications. Check your connection.' };
+  }
+  if (!news.item) {
+    return { mood: 'sleepy', title: null, text: 'You’re all caught up! I’ll tell you when something new comes up.' };
+  }
+  return { mood: HAMI_MOOD_BY_KIND[news.item.kind], title: news.item.title, text: news.item.body };
+}
 
 // The student dashboard. Recommended For You is live (recommend_for_me() in the
 // database); My Organizations is a placeholder until memberships are shown.
@@ -36,8 +60,10 @@ export default function HomeScreen() {
   const [recommendations, setRecommendations] = useState<RecommendedOrg[] | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [news, setNews] = useState<HamiNews>({ status: 'loading' });
 
-  // happy-hami.png is square (1254 x 1254).
+  // The Hami images are square (about 1254 x 1254).
   const hamiSize = Math.min(Math.max(width * 0.3, 110), 140);
 
   useEffect(() => {
@@ -48,6 +74,7 @@ export default function HomeScreen() {
         router.replace('/login');
         return;
       }
+      setUserId(data.session.user.id);
       fetchProfile(data.session.user.id)
         .then((loaded) => active && setProfile(loaded))
         .catch(() => {
@@ -63,6 +90,38 @@ export default function HomeScreen() {
     };
   }, []);
 
+  // Hami checks again each time Home is shown (e.g. back from a notification)
+  // and whenever something is marked read, so it moves on to the next news.
+  useFocusEffect(
+    useCallback(() => {
+      if (!userId) return;
+      let active = true;
+
+      function load(profileId: string) {
+        Promise.all([fetchNotifications(profileId), fetchReadKeys(profileId)])
+          .then(([items, read]) => {
+            if (active) setNews({ status: 'ready', item: items.find((item) => !read.has(item.key)) ?? null });
+          })
+          .catch(() => active && setNews({ status: 'error' }));
+      }
+
+      load(userId);
+      const unsubscribe = onReadChanged(() => load(userId));
+      return () => {
+        active = false;
+        unsubscribe();
+      };
+    }, [userId]),
+  );
+
+  function openNews(item: NotificationItem) {
+    markRead([item.key]).catch(() => {
+      // It'll still show as unread next time; opening it matters more.
+    });
+    const href = notificationHref(item);
+    if (href) router.push(href);
+  }
+
   async function handleLogout() {
     setMenuOpen(false);
     await supabase.auth.signOut();
@@ -71,6 +130,8 @@ export default function HomeScreen() {
 
   const firstName = profile?.full_name?.split(' ')[0] ?? 'there';
   const initial = (profile?.full_name ?? profile?.email ?? '?').trim().charAt(0).toUpperCase();
+  const hami = hamiSays(news);
+  const newsItem = news.status === 'ready' ? news.item : null;
 
   return (
     <View style={styles.screen}>
@@ -93,18 +154,31 @@ export default function HomeScreen() {
 
             <View style={styles.hamiRow}>
               <Image
-                source={HAMI_IMAGES.happy}
+                source={HAMI_IMAGES[hami.mood]}
                 style={{ width: hamiSize, height: hamiSize }}
                 contentFit="contain"
-                accessibilityLabel="Hami, the NEU-ORG mascot"
+                transition={200}
+                accessibilityLabel={`Hami, the NEU-ORG mascot, looks ${hami.mood}`}
               />
               <View style={styles.bubbleWrap}>
                 {/* The little point of the speech bubble, toward Hami. */}
                 <View style={styles.bubbleTail} />
-                <View style={styles.bubble}>
+                <Pressable
+                  onPress={newsItem ? () => openNews(newsItem) : undefined}
+                  disabled={!newsItem}
+                  style={({ pressed }) => [styles.bubble, pressed && styles.pressed]}
+                  accessibilityRole={newsItem ? 'button' : 'text'}
+                  accessibilityHint={newsItem ? 'Opens this notification' : undefined}>
                   <Text style={styles.bubbleName}>Hami</Text>
-                  <Text style={styles.bubbleText}>Check out the latest events from your organizations!</Text>
-                </View>
+                  {hami.title && (
+                    <Text style={styles.bubbleTitle} numberOfLines={2}>
+                      {hami.title}
+                    </Text>
+                  )}
+                  <Text style={styles.bubbleText} numberOfLines={hami.title ? 2 : undefined}>
+                    {hami.text}
+                  </Text>
+                </Pressable>
               </View>
             </View>
           </View>
@@ -119,16 +193,10 @@ export default function HomeScreen() {
               <ActivityIndicator style={styles.loading} color="#3549D6" />
             )}
             {loadError && (
-              <HamiNotice
-                mood="worried"
-                text="Recommendations couldn't load. Check your connection and open the app again."
-              />
+              <Notice text="Recommendations couldn't load. Check your connection and open the app again." />
             )}
             {recommendations?.length === 0 && (
-              <HamiNotice
-                mood="crying"
-                text="No matches yet. As more organizations join NEU-ORG, recommendations based on your interests will show up here."
-              />
+              <Notice text="No matches yet. As more organizations join NEU-ORG, recommendations based on your interests will show up here." />
             )}
             <View style={styles.cards}>
               {recommendations?.map((org) => (
@@ -138,10 +206,7 @@ export default function HomeScreen() {
 
             <Text style={[styles.sectionTitle, styles.nextSection]}>My Organizations</Text>
             <Text style={styles.sectionSubtitle}>Organizations you’ve joined</Text>
-            <HamiNotice
-              mood="sleepy"
-              text="Organizations you join will appear here, with their latest events and announcements."
-            />
+            <Notice text="Organizations you join will appear here, with their latest events and announcements." />
           </View>
         </View>
       </ScrollView>
@@ -195,6 +260,14 @@ function OrgCard({ org }: { org: RecommendedOrg }) {
   );
 }
 
+function Notice({ text }: { text: string }) {
+  return (
+    <View style={styles.notice}>
+      <Text style={styles.noticeText}>{text}</Text>
+    </View>
+  );
+}
+
 const INK = '#1E2440';
 const MUTED = '#71717A';
 
@@ -234,6 +307,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   bubbleName: { fontFamily: 'Poppins_500Medium', fontSize: 11, color: 'rgba(255, 255, 255, 0.85)' },
+  bubbleTitle: { marginTop: 2, fontFamily: 'Poppins_600SemiBold', fontSize: 13, lineHeight: 19, color: '#FFFFFF' },
   bubbleText: { marginTop: 2, fontFamily: 'Poppins_400Regular', fontSize: 13, lineHeight: 19, color: '#FFFFFF' },
 
   panel: {
@@ -276,6 +350,17 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   openText: { fontFamily: 'Poppins_500Medium', fontSize: 11, color: '#15803D' },
+
+  notice: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: '#D4D4D8',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  noticeText: { fontFamily: 'Poppins_400Regular', fontSize: 12, lineHeight: 18, color: MUTED },
 
   menu: {
     position: 'absolute',

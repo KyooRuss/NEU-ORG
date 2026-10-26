@@ -23,9 +23,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BRAND_GRADIENT } from '@/constants/brand';
 import {
   chooseGoogleAccount,
+  type CodeKind,
   isSchoolEmail,
+  passwordStep,
   SCHOOL_DOMAIN,
   sendCode,
+  setNewPassword,
   signInErrorMessage,
   verifyCode,
 } from '@/lib/auth';
@@ -45,16 +48,22 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
-// Signing in: "Continue with Google", then the 6-digit code emailed to that
-// NEU account (see lib/auth.ts). In Expo Go there's also a password form for
-// the seeded test accounts.
+// Which button is working, to show its spinner.
+type Busy = 'login' | 'google' | 'forgot' | 'verify' | 'resend' | null;
+
+// Signing in with email + password or "Continue with Google". Either way a
+// 6-digit code is emailed to the NEU address, and entering it signs the
+// student in (see lib/auth.ts). "Forgot password?" works the same way.
 export default function LoginScreen() {
-  // The NEU email the code was sent to; null until Google is done.
-  const [codeEmail, setCodeEmail] = useState<string | null>(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [busy, setBusy] = useState<Busy>(null);
+  // The code that was emailed, and where to; null while on the first step.
+  const [pending, setPending] = useState<{ email: string; kind: CodeKind } | null>(null);
   const [code, setCode] = useState('');
+  const [newPassword, setNewPasswordText] = useState('');
   const [cooldown, setCooldown] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [usePassword, setUsePassword] = useState(false);
 
   const { width, height } = useWindowDimensions();
   // Room for the notch / status bar and the phone's bottom bar.
@@ -70,60 +79,105 @@ export default function LoginScreen() {
     return () => clearTimeout(timer);
   }, [cooldown]);
 
-  async function handleGoogle() {
-    setLoading(true);
+  function codeSent(to: string, kind: CodeKind) {
+    setPending({ email: to, kind });
+    setCode('');
+    setNewPasswordText('');
+    setCooldown(RESEND_SECONDS);
+  }
+
+  async function handleLogin() {
+    if (!email.trim() || !password) {
+      Alert.alert('Missing details', 'Enter your email and password.');
+      return;
+    }
+    setBusy('login');
     try {
-      const email = await chooseGoogleAccount();
-      if (!email) return;
-      if (!isSchoolEmail(email)) {
+      const result = await passwordStep(email, password);
+      if ('userId' in result) await finishSignIn(result.userId);
+      else codeSent(email.trim().toLowerCase(), result.kind);
+    } catch (error) {
+      Alert.alert('Login failed', signInErrorMessage(error));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleGoogle() {
+    setBusy('google');
+    try {
+      const picked = await chooseGoogleAccount();
+      if (!picked) return;
+      if (!isSchoolEmail(picked)) {
         Alert.alert('Use your NEU account', `Sign in with your NEU Google account (@${SCHOOL_DOMAIN}).`);
         return;
       }
-      await sendCode(email);
-      setCodeEmail(email);
-      setCode('');
-      setCooldown(RESEND_SECONDS);
+      await sendCode(picked, 'email');
+      codeSent(picked, 'email');
     } catch (error) {
       Alert.alert('Sign-in failed', signInErrorMessage(error));
     } finally {
-      setLoading(false);
+      setBusy(null);
+    }
+  }
+
+  async function handleForgot() {
+    const to = email.trim().toLowerCase();
+    if (!to) {
+      Alert.alert('Enter your email', 'Type your institutional email first, then tap “Forgot password?”.');
+      return;
+    }
+    setBusy('forgot');
+    try {
+      await sendCode(to, 'recovery');
+      codeSent(to, 'recovery');
+    } catch (error) {
+      Alert.alert('Couldn’t send the code', signInErrorMessage(error));
+    } finally {
+      setBusy(null);
     }
   }
 
   async function handleVerify() {
-    if (!codeEmail) return;
+    if (!pending) return;
     if (!/^\d{6}$/.test(code)) {
       Alert.alert('Enter the code', 'Type the 6-digit code from the email.');
       return;
     }
-    setLoading(true);
+    if (pending.kind === 'recovery' && newPassword.length < 8) {
+      Alert.alert('New password', 'Choose a new password with at least 8 characters.');
+      return;
+    }
+    setBusy('verify');
     try {
-      const userId = await verifyCode(codeEmail, code);
+      const userId = await verifyCode(pending.email, code, pending.kind);
+      if (pending.kind === 'recovery') await setNewPassword(newPassword);
       await finishSignIn(userId);
     } catch (error) {
       Alert.alert('Verification failed', signInErrorMessage(error));
     } finally {
-      setLoading(false);
+      setBusy(null);
     }
   }
 
   async function handleResend() {
-    if (!codeEmail || cooldown > 0) return;
-    setLoading(true);
+    if (!pending || cooldown > 0) return;
+    setBusy('resend');
     try {
-      await sendCode(codeEmail);
+      await sendCode(pending.email, pending.kind);
       setCooldown(RESEND_SECONDS);
-      Alert.alert('Code sent', `A new code is on its way to ${codeEmail}.`);
+      Alert.alert('Code sent', `A new code is on its way to ${pending.email}.`);
     } catch (error) {
       Alert.alert('Couldn’t send the code', signInErrorMessage(error));
     } finally {
-      setLoading(false);
+      setBusy(null);
     }
   }
 
   function startOver() {
-    setCodeEmail(null);
+    setPending(null);
     setCode('');
+    setNewPasswordText('');
     setCooldown(0);
   }
 
@@ -164,19 +218,17 @@ export default function LoginScreen() {
           style={{ paddingBottom: insets.bottom + 32 }}>
           {/* Stays phone-width on tablets instead of stretching across the screen. */}
           <View className="w-full max-w-[420px] self-center">
-            {usePassword ? (
-              <PasswordForm onBack={() => setUsePassword(false)} />
-            ) : codeEmail ? (
+            {pending ? (
               <>
                 <Text className="text-center font-poppins-medium text-base text-brand-ink">
-                  Check your email
+                  {pending.kind === 'recovery' ? 'Reset your password' : 'Check your email'}
                 </Text>
                 <Text className="mt-1 text-center font-poppins text-sm text-zinc-600">
                   Enter the 6-digit code we sent to{'\n'}
-                  <Text className="font-poppins-medium text-brand-ink">{codeEmail}</Text>
+                  <Text className="font-poppins-medium text-brand-ink">{pending.email}</Text>
                 </Text>
 
-                <View className="mt-6">
+                <View className="mt-6 gap-4">
                   <Field
                     icon="keypad"
                     placeholder="6-digit code"
@@ -187,44 +239,108 @@ export default function LoginScreen() {
                     autoComplete="one-time-code"
                     textContentType="oneTimeCode"
                     autoFocus
-                    onSubmitEditing={handleVerify}
+                    onSubmitEditing={pending.kind === 'recovery' ? undefined : handleVerify}
                   />
+                  {pending.kind === 'recovery' && (
+                    <Field
+                      icon="lock-closed"
+                      placeholder="New password"
+                      value={newPassword}
+                      onChangeText={setNewPasswordText}
+                      secureTextEntry={!showPassword}
+                      autoComplete="new-password"
+                      textContentType="newPassword"
+                      trailing={
+                        <ShowPasswordButton shown={showPassword} onToggle={() => setShowPassword((s) => !s)} />
+                      }
+                    />
+                  )}
                 </View>
 
                 <Pressable
                   onPress={handleVerify}
-                  disabled={loading}
+                  disabled={busy !== null}
                   className="mt-6 h-14 items-center justify-center rounded-full bg-brand-blue active:opacity-80">
-                  {loading ? (
+                  {busy === 'verify' ? (
                     <ActivityIndicator color="#ffffff" />
                   ) : (
-                    <Text className="font-poppins-medium text-base text-white">Verify</Text>
+                    <Text className="font-poppins-medium text-base text-white">
+                      {pending.kind === 'recovery' ? 'Save password' : 'Verify'}
+                    </Text>
                   )}
                 </Pressable>
 
                 <View className="mt-5 flex-row items-center justify-center">
-                  <Pressable onPress={handleResend} disabled={loading || cooldown > 0} hitSlop={8}>
+                  <Pressable onPress={handleResend} disabled={busy !== null || cooldown > 0} hitSlop={8}>
                     <Text
                       className={`font-poppins-medium text-xs ${cooldown > 0 ? 'text-zinc-400' : 'text-brand-blue'}`}>
                       {cooldown > 0 ? `Resend code in ${cooldown}s` : 'Resend code'}
                     </Text>
                   </Pressable>
                   <Text className="mx-2 font-poppins text-xs text-zinc-400">·</Text>
-                  <Pressable onPress={startOver} disabled={loading} hitSlop={8}>
+                  <Pressable onPress={startOver} disabled={busy !== null} hitSlop={8}>
                     <Text className="font-poppins-medium text-xs text-brand-blue">Use a different account</Text>
                   </Pressable>
                 </View>
               </>
             ) : (
               <>
-                <Text className="mb-6 text-center font-poppins text-sm text-zinc-600">
-                  Sign in with your NEU Google account
-                </Text>
+                <View className="gap-4">
+                  <Field
+                    icon="person"
+                    placeholder="Institutional Email"
+                    value={email}
+                    onChangeText={setEmail}
+                    autoCapitalize="none"
+                    autoComplete="email"
+                    keyboardType="email-address"
+                    textContentType="emailAddress"
+                  />
+                  <Field
+                    icon="lock-closed"
+                    placeholder="Password"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                    autoComplete="password"
+                    textContentType="password"
+                    onSubmitEditing={handleLogin}
+                    trailing={
+                      <ShowPasswordButton shown={showPassword} onToggle={() => setShowPassword((s) => !s)} />
+                    }
+                  />
+                </View>
+
+                <Pressable className="mt-3 self-end" onPress={handleForgot} disabled={busy !== null}>
+                  {busy === 'forgot' ? (
+                    <ActivityIndicator size="small" color="#3549D6" />
+                  ) : (
+                    <Text className="font-poppins text-xs text-brand-blue">Forgot password?</Text>
+                  )}
+                </Pressable>
+
+                <Pressable
+                  onPress={handleLogin}
+                  disabled={busy !== null}
+                  className="mt-6 h-14 items-center justify-center rounded-full bg-brand-blue active:opacity-80">
+                  {busy === 'login' ? (
+                    <ActivityIndicator color="#ffffff" />
+                  ) : (
+                    <Text className="font-poppins-medium text-base text-white">Login</Text>
+                  )}
+                </Pressable>
+
+                <View className="my-6 flex-row items-center">
+                  <View className="h-px flex-1 bg-zinc-300" />
+                  <Text className="mx-3 font-poppins text-xs text-zinc-500">or</Text>
+                  <View className="h-px flex-1 bg-zinc-300" />
+                </View>
+
                 <Pressable
                   onPress={handleGoogle}
-                  disabled={loading}
+                  disabled={busy !== null}
                   className="h-14 flex-row items-center justify-center rounded-full border border-zinc-300 bg-white active:opacity-80">
-                  {loading ? (
+                  {busy === 'google' ? (
                     <ActivityIndicator color="#3549D6" />
                   ) : (
                     <>
@@ -239,16 +355,6 @@ export default function LoginScreen() {
                     </>
                   )}
                 </Pressable>
-                <Text className="mt-4 text-center font-poppins text-xs text-zinc-500">
-                  We’ll email a 6-digit code to confirm it’s you.
-                </Text>
-
-                {/* Only in development (Expo Go): the seeded test accounts use passwords. */}
-                {__DEV__ && (
-                  <Pressable onPress={() => setUsePassword(true)} className="mt-8 self-center" hitSlop={8}>
-                    <Text className="font-poppins text-xs text-zinc-400 underline">Use password (testing)</Text>
-                  </Pressable>
-                )}
               </>
             )}
           </View>
@@ -282,79 +388,15 @@ async function finishSignIn(userId: string) {
   router.replace(nextScreen(profile));
 }
 
-// The old email + password login, kept for the seeded test accounts. Shown
-// only in development.
-function PasswordForm({ onBack }: { onBack: () => void }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  async function handleLogin() {
-    if (!email.trim() || !password) {
-      Alert.alert('Missing details', 'Enter your email and password.');
-      return;
-    }
-
-    setLoading(true);
-    const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-    if (error) {
-      setLoading(false);
-      Alert.alert('Login failed', error.message);
-      return;
-    }
-    await finishSignIn(data.user.id);
-    setLoading(false);
-  }
-
+function ShowPasswordButton({ shown, onToggle }: { shown: boolean; onToggle: () => void }) {
   return (
-    <>
-      <View className="gap-4">
-        <Field
-          icon="person"
-          placeholder="Email"
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          autoComplete="email"
-          keyboardType="email-address"
-          textContentType="emailAddress"
-        />
-        <Field
-          icon="lock-closed"
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry={!showPassword}
-          autoComplete="password"
-          textContentType="password"
-          trailing={
-            <Pressable
-              onPress={() => setShowPassword((shown) => !shown)}
-              hitSlop={10}
-              accessibilityRole="button"
-              accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}>
-              <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color="#52525B" />
-            </Pressable>
-          }
-        />
-      </View>
-
-      <Pressable
-        onPress={handleLogin}
-        disabled={loading}
-        className="mt-6 h-14 items-center justify-center rounded-full bg-brand-blue active:opacity-80">
-        {loading ? (
-          <ActivityIndicator color="#ffffff" />
-        ) : (
-          <Text className="font-poppins-medium text-base text-white">Login (testing)</Text>
-        )}
-      </Pressable>
-
-      <Pressable onPress={onBack} className="mt-5 self-center" hitSlop={8}>
-        <Text className="font-poppins-medium text-xs text-brand-blue">Back to Google sign-in</Text>
-      </Pressable>
-    </>
+    <Pressable
+      onPress={onToggle}
+      hitSlop={10}
+      accessibilityRole="button"
+      accessibilityLabel={shown ? 'Hide password' : 'Show password'}>
+      <Ionicons name={shown ? 'eye-off-outline' : 'eye-outline'} size={20} color="#52525B" />
+    </Pressable>
   );
 }
 

@@ -3,10 +3,11 @@ import * as WebBrowser from 'expo-web-browser';
 
 import { supabase } from './supabase';
 
-// Signing in: "Continue with Google" finds out which NEU account the student
-// uses, then a 6-digit code is emailed to it, and entering that code is what
-// actually signs them in. Only @neu.edu.ph accounts are allowed (the database
-// refuses others too, see the school_emails_only migration).
+// Signing in, two ways that end the same: email + password, or "Continue with
+// Google". Either one finds out which NEU account it is, then a 6-digit code is
+// emailed to it, and entering that code is what signs the student in. New
+// accounts must be @neu.edu.ph (the database refuses others too, see the
+// school_emails_only migration).
 
 export const SCHOOL_DOMAIN = 'neu.edu.ph';
 
@@ -57,28 +58,98 @@ export async function chooseGoogleAccount(): Promise<string | null> {
   return email;
 }
 
-// Emails a 6-digit code. The account already exists after the Google step.
-export async function sendCode(email: string) {
-  const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
+// Which kind of code was emailed, so Verify and Resend use the matching one:
+// signing in to an existing account, confirming a new account, or resetting a
+// forgotten password.
+export type CodeKind = 'email' | 'signup' | 'recovery';
+
+const WRONG_PASSWORD =
+  'Wrong password. If you usually use Continue with Google, use that, or tap “Forgot password?” to set one.';
+
+// The email + password Login button. Emails a code and returns its kind, or,
+// in development only, signs a seeded test account straight in (their
+// mailboxes don't exist) and returns its user id.
+export async function passwordStep(
+  email: string,
+  password: string,
+): Promise<{ kind: CodeKind } | { userId: string }> {
+  const cleanEmail = email.trim().toLowerCase();
+
+  const signIn = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
+  if (!signIn.error) {
+    if (__DEV__ && !isSchoolEmail(cleanEmail)) return { userId: signIn.data.user.id };
+    // The password found the account; the emailed code is what signs them in.
+    await supabase.auth.signOut({ scope: 'local' });
+    await sendCode(cleanEmail, 'email');
+    return { kind: 'email' };
+  }
+
+  const reason = signIn.error.message.toLowerCase();
+  // Signed up before but never entered the code: send a new one.
+  if (reason.includes('not confirmed')) {
+    await sendCode(cleanEmail, 'signup');
+    return { kind: 'signup' };
+  }
+  if (!reason.includes('invalid login credentials')) throw signIn.error;
+
+  // Either a wrong password or no account yet. Trying to sign up tells which.
+  if (!isSchoolEmail(cleanEmail)) throw new Error(`Use your NEU email (@${SCHOOL_DOMAIN}).`);
+  const signUp = await supabase.auth.signUp({ email: cleanEmail, password });
+  if (signUp.error) throw signUp.error;
+  // Supabase answers this way for an email that already has an account.
+  if (signUp.data.user && signUp.data.user.identities?.length === 0) throw new Error(WRONG_PASSWORD);
+  // With "Confirm email" off, sign-up signs in right away; still require the code.
+  if (signUp.data.session) {
+    await supabase.auth.signOut({ scope: 'local' });
+    await sendCode(cleanEmail, 'email');
+    return { kind: 'email' };
+  }
+  // A new account: Supabase emailed its confirmation code.
+  return { kind: 'signup' };
+}
+
+// Emails a 6-digit code of the given kind. For 'email' the account already
+// exists (after the password or Google step).
+export async function sendCode(email: string, kind: CodeKind) {
+  const { error } =
+    kind === 'email'
+      ? await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false } })
+      : kind === 'signup'
+        ? await supabase.auth.resend({ type: 'signup', email })
+        : await supabase.auth.resetPasswordForEmail(email);
   if (error) throw error;
 }
 
 // Signs in with the emailed code. Returns the user's id.
-export async function verifyCode(email: string, code: string): Promise<string> {
-  const { data, error } = await supabase.auth.verifyOtp({ email, token: code, type: 'email' });
+export async function verifyCode(email: string, code: string, kind: CodeKind): Promise<string> {
+  const { data, error } = await supabase.auth.verifyOtp({ email, token: code, type: kind });
   if (error) throw error;
   if (!data.user) throw new Error('That code didn’t work. Please try again.');
   return data.user.id;
+}
+
+// After a 'recovery' code: saves the new password on the signed-in account.
+export async function setNewPassword(password: string) {
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) throw error;
 }
 
 // A message a student can act on, for any sign-in error.
 export function signInErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   const lower = message.toLowerCase();
-  if (lower.includes('saving new user') || lower.includes('neu.edu.ph')) {
-    return `Use your NEU Google account (@${SCHOOL_DOMAIN}).`;
+  if (lower.includes('saving new user') || lower.includes('only neu accounts')) {
+    return `Use your NEU account (@${SCHOOL_DOMAIN}).`;
   }
-  if (lower.includes('expired') || lower.includes('invalid')) {
+  if (lower.includes('already registered')) return WRONG_PASSWORD;
+  if (lower.includes('password should') || lower.includes('weak password')) {
+    return 'Choose a stronger password (at least 8 characters, with letters and numbers).';
+  }
+  if (lower.includes('same password') || lower.includes('different from the old')) {
+    return 'Choose a password different from your old one.';
+  }
+  // Supabase: "Token has expired or is invalid".
+  if (lower.includes('token') || lower.includes('expired')) {
     return 'That code is wrong or has expired. Check the latest email, or send a new code.';
   }
   if (lower.includes('rate limit') || lower.includes('security purposes') || lower.includes('too many')) {

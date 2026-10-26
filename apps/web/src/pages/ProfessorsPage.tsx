@@ -1,16 +1,20 @@
-import { Search, Trash2 } from 'lucide-react'
+import { Plus, Search, Trash2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import ConfirmDialog from '../components/ConfirmDialog'
 import FilterMenu, { FilterOption, FilterSection } from '../components/FilterMenu'
 import IconButton from '../components/IconButton'
 import { StatusRow } from '../components/OrganizationsOverview'
+import ProfessorFormModal from '../components/ProfessorFormModal'
 import StatusSwitch from '../components/StatusSwitch'
 import { COLLEGES } from '../lib/organizations'
 import {
   archiveProfessor,
+  cancelProfessorInvite,
+  fetchProfessorInvites,
   fetchProfessors,
   type Professor,
+  type ProfessorInvite,
   setProfessorStatus,
   usingSampleProfessors,
 } from '../lib/professors'
@@ -30,7 +34,7 @@ const STATUS_OPTIONS = [
 const fieldClass =
   'rounded-full bg-field py-2 text-sm text-zinc-800 outline-none focus:ring-2 focus:ring-brand-blue/40'
 
-// The Students page with Professor No. and Department in place of Student No. and Year Level.
+// The Students page with Department in place of Student No. and Year Level.
 export default function ProfessorsPage() {
   const [professors, setProfessors] = useState<Professor[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -42,6 +46,13 @@ export default function ProfessorsPage() {
   // The professor about to be moved to Trash.
   const [deleting, setDeleting] = useState<Professor | null>(null)
   const [sample, setSample] = useState(false)
+  // Emails added as professors that haven't signed in yet.
+  const [invites, setInvites] = useState<ProfessorInvite[]>([])
+  const [adding, setAdding] = useState(false)
+  // The invite about to be cancelled.
+  const [cancelling, setCancelling] = useState<ProfessorInvite | null>(null)
+  // What happened after adding a professor, shown above the table.
+  const [message, setMessage] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -55,6 +66,11 @@ export default function ProfessorsPage() {
       .catch((error: Error) => {
         if (!cancelled) setLoadError(error.message)
       })
+    fetchProfessorInvites()
+      .then((loaded) => !cancelled && setInvites(loaded))
+      .catch(() => {
+        // The list of professors matters more; invites show again on the next reload.
+      })
     return () => {
       cancelled = true
     }
@@ -64,7 +80,7 @@ export default function ProfessorsPage() {
   const shown = (professors ?? []).filter(
     (professor) =>
       (!search ||
-        [professor.professor_no, professor.name, professor.email].some((text) =>
+        [professor.name, professor.email].some((text) =>
           text.toLowerCase().includes(search),
         )) &&
       (!filters.status || (professor.status === 'active') === (filters.status === 'active')) &&
@@ -96,7 +112,7 @@ export default function ProfessorsPage() {
                 type="search"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search name, professor no. or email address"
+                placeholder="Search name or email address"
                 className={`w-full pr-4 pl-9 placeholder:text-zinc-500 ${fieldClass}`}
               />
             </label>
@@ -133,8 +149,28 @@ export default function ProfessorsPage() {
                 ))}
               </FilterSection>
             </FilterMenu>
+            <button
+              type="button"
+              onClick={() => setAdding(true)}
+              className="flex items-center gap-1.5 rounded-full bg-[#2f80ed] px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-brand-blue"
+            >
+              <Plus size={16} aria-hidden="true" />
+              Add Professor
+            </button>
           </div>
         </div>
+
+        {message && (
+          <p
+            role="status"
+            className="mx-6 mb-4 flex items-start gap-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800"
+          >
+            <span className="flex-1">{message}</span>
+            <button type="button" onClick={() => setMessage(null)} aria-label="Dismiss" className="text-green-700">
+              <X size={16} aria-hidden="true" />
+            </button>
+          </p>
+        )}
 
         {sample && (
           <p className="mx-6 mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
@@ -145,13 +181,10 @@ export default function ProfessorsPage() {
         )}
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[860px] text-left text-sm">
+          <table className="w-full min-w-[760px] text-left text-sm">
             <thead className="border-y border-zinc-200 bg-surface text-xs tracking-wide text-zinc-500 uppercase">
               <tr>
-                <th scope="col" className="px-6 py-3 text-center font-medium">
-                  Professor No.
-                </th>
-                <th scope="col" className="px-6 py-3 text-center font-medium">
+                <th scope="col" className="px-6 py-3 font-medium">
                   Name
                 </th>
                 <th scope="col" className="px-6 py-3 text-center font-medium">
@@ -171,9 +204,6 @@ export default function ProfessorsPage() {
             <tbody className="divide-y divide-zinc-100">
               {shown.map((professor) => (
                 <tr key={professor.id} className="transition hover:bg-surface/60">
-                  <td className="px-6 py-4 text-center font-medium text-zinc-700 tabular-nums">
-                    {professor.professor_no}
-                  </td>
                   <td className="px-6 py-4 font-medium text-brand-navy">{professor.name}</td>
                   <td className="px-6 py-4 text-center text-zinc-700">{professor.department ?? '—'}</td>
                   <td className="px-6 py-4 text-center text-zinc-700">{professor.email}</td>
@@ -201,7 +231,7 @@ export default function ProfessorsPage() {
               ))}
               <StatusRow
                 what="professors"
-                columns={6}
+                columns={5}
                 loading={professors === null && !loadError}
                 error={loadError}
                 onRetry={() => setReloadKey((key) => key + 1)}
@@ -209,7 +239,7 @@ export default function ProfessorsPage() {
                   professors !== null && shown.length === 0
                     ? narrowed
                       ? 'No professors match your search or filters.'
-                      : 'No professors yet. Accounts show here once they have a professor number.'
+                      : 'No professors yet. Click “Add Professor”, or mark someone on the Students page.'
                     : null
                 }
               />
@@ -217,6 +247,60 @@ export default function ProfessorsPage() {
           </table>
         </div>
       </section>
+
+      {invites.length > 0 && (
+        <section className="mt-6 rounded-xl bg-white shadow-sm ring-1 ring-zinc-200">
+          <div className="p-6 pb-4">
+            <h2 className="font-semibold text-brand-navy">Invited — hasn’t signed in yet</h2>
+            <p className="mt-1 text-sm text-zinc-500">
+              These emails become professors automatically the first time they sign in.
+            </p>
+          </div>
+          <ul className="divide-y divide-zinc-100 border-t border-zinc-200">
+            {invites.map((invite) => (
+              <li key={invite.email} className="flex flex-wrap items-center gap-x-6 gap-y-1 px-6 py-3 text-sm">
+                <span className="min-w-0 flex-1 truncate text-brand-navy">{invite.email}</span>
+                <span className="text-zinc-600">{invite.department}</span>
+                <button
+                  type="button"
+                  onClick={() => setCancelling(invite)}
+                  className="border-b border-red-400/60 font-medium text-red-500 transition hover:text-red-700"
+                >
+                  Cancel invite
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {adding && (
+        <ProfessorFormModal
+          onClose={() => setAdding(false)}
+          onSaved={(result, email) => {
+            setMessage(
+              result === 'linked'
+                ? `${email} is now a professor.`
+                : `${email} is invited. They’ll become a professor the first time they sign in.`,
+            )
+            setReloadKey((key) => key + 1)
+          }}
+        />
+      )}
+
+      {cancelling && (
+        <ConfirmDialog
+          title="Cancel invite?"
+          message={`${cancelling.email} won’t become a professor when they sign in. You can add them again anytime.`}
+          confirmLabel="Cancel invite"
+          danger
+          onClose={() => setCancelling(null)}
+          onConfirm={async () => {
+            await cancelProfessorInvite(cancelling.email)
+            setInvites((current) => current.filter((invite) => invite.email !== cancelling.email))
+          }}
+        />
+      )}
 
       {deleting && (
         <ConfirmDialog

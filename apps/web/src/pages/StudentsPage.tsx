@@ -1,10 +1,11 @@
-import { Search, Trash2 } from 'lucide-react'
+import { GraduationCap, Search, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import ConfirmDialog from '../components/ConfirmDialog'
 import FilterMenu, { FilterOption, FilterSection } from '../components/FilterMenu'
 import IconButton from '../components/IconButton'
 import { StatusRow } from '../components/OrganizationsOverview'
+import ProfessorFormModal from '../components/ProfessorFormModal'
 import StatusSwitch from '../components/StatusSwitch'
 import {
   ACCOUNT_STATUS_LABELS,
@@ -34,6 +35,8 @@ export default function StudentsPage() {
   const [toggling, setToggling] = useState<Student | null>(null)
   // The student about to be moved to Trash.
   const [deleting, setDeleting] = useState<Student | null>(null)
+  // The account about to be marked as a professor.
+  const [marking, setMarking] = useState<Student | null>(null)
   const [sample, setSample] = useState(false)
 
   useEffect(() => {
@@ -181,6 +184,12 @@ export default function StudentsPage() {
                         onToggle={() => setToggling(student)}
                       />
                       <IconButton
+                        icon={GraduationCap}
+                        label={`Mark ${student.name} as a professor`}
+                        colored
+                        onClick={() => setMarking(student)}
+                      />
+                      <IconButton
                         icon={Trash2}
                         label={`Move ${student.name} to Trash`}
                         danger
@@ -209,6 +218,17 @@ export default function StudentsPage() {
           </table>
         </div>
       </section>
+
+      {marking && (
+        <ProfessorFormModal
+          account={{ name: marking.name, email: marking.email }}
+          onClose={() => setMarking(null)}
+          onSaved={() => {
+            // They're on the Professors page now; the Students list leaves professors out.
+            setStudents((current) => current?.filter((student) => student.id !== marking.id) ?? null)
+          }}
+        />
+      )}
 
       {deleting && (
         <ConfirmDialog

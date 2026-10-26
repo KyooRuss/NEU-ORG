@@ -170,11 +170,6 @@ const PROFESSORS: TrashTableProps<Professor> = {
   minWidth: 'min-w-[760px]',
   name: (professor) => professor.name,
   columns: [
-    {
-      header: 'Professor No.',
-      className: 'text-center font-medium text-zinc-700 tabular-nums',
-      cell: (professor) => professor.professor_no,
-    },
     { header: 'Name', className: 'font-medium text-brand-navy', cell: (professor) => professor.name },
     { header: 'Department', className: 'text-center text-zinc-700', cell: (professor) => professor.department ?? '—' },
     { header: 'Email Address', className: 'text-center text-zinc-700', cell: (professor) => professor.email },

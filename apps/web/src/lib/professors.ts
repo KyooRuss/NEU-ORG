@@ -1,9 +1,9 @@
 import type { AccountStatus } from './students'
 import { supabase } from './supabase'
 
+// A professor is an account OSAS marked as one (profiles.is_professor).
 export type Professor = {
   id: string
-  professor_no: string
   name: string
   email: string
   // A college from COLLEGES, or null until it's filled in.
@@ -30,14 +30,8 @@ function isMissingColumn(error: { code?: string }) {
 }
 
 function createSampleStore(): Professor[] {
-  const sample = (
-    professor_no: string,
-    name: string,
-    department: string,
-    status: AccountStatus = 'active',
-  ): Professor => ({
+  const sample = (name: string, department: string, status: AccountStatus = 'active'): Professor => ({
     id: crypto.randomUUID(),
-    professor_no,
     name,
     email: `${name.toLowerCase().replace(/[^a-z]+/g, '.').replace(/^\.|\.$/g, '')}@neu.edu.ph`,
     department,
@@ -47,11 +41,11 @@ function createSampleStore(): Professor[] {
   })
 
   return [
-    sample('P0001', 'Dr. Ramon Castillo', 'College of Computer Studies'),
-    sample('P0002', 'Prof. Liza Navarro', 'College of Accountancy'),
-    sample('P0003', 'Engr. Victor Tan', 'College of Engineering and Architecture'),
-    sample('P0004', 'Prof. Grace Aquino', 'College of Nursing', 'inactive'),
-    sample('P0005', 'Dr. Miguel Santos', 'College of Arts and Sciences'),
+    sample('Dr. Ramon Castillo', 'College of Computer Studies'),
+    sample('Prof. Liza Navarro', 'College of Accountancy'),
+    sample('Engr. Victor Tan', 'College of Engineering and Architecture'),
+    sample('Prof. Grace Aquino', 'College of Nursing', 'inactive'),
+    sample('Dr. Miguel Santos', 'College of Arts and Sciences'),
   ]
 }
 
@@ -67,17 +61,17 @@ function findSample(id: string): Professor {
 
 type ProfessorRow = Omit<Professor, 'name'> & { full_name: string | null }
 
-// Everyone with a professor number, including professors who are currently advisers.
+// Every professor, including ones who are currently advisers, by name.
 // The professors in Trash when archived is true, the others otherwise.
 export async function fetchProfessors(archived = false): Promise<Professor[]> {
   if (!sampleStore) {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, professor_no, full_name, email, department, status, archived_at, created_at')
-      .not('professor_no', 'is', null)
+      .select('id, full_name, email, department, status, archived_at, created_at')
+      .eq('is_professor', true)
       .neq('role', 'admin')
       .filter('archived_at', archived ? 'not.is' : 'is', null)
-      .order('professor_no')
+      .order('full_name')
 
     if (!error) {
       return (data as ProfessorRow[]).map(({ full_name, ...row }) => ({ ...row, name: full_name || row.email }))
@@ -88,7 +82,7 @@ export async function fetchProfessors(archived = false): Promise<Professor[]> {
 
   return sampleStore
     .filter((professor) => (professor.archived_at !== null) === archived)
-    .sort((a, b) => a.professor_no.localeCompare(b.professor_no))
+    .sort((a, b) => a.name.localeCompare(b.name))
 }
 
 export async function setProfessorStatus(id: string, status: AccountStatus) {
@@ -101,7 +95,7 @@ export async function setProfessorStatus(id: string, status: AccountStatus) {
     .from('profiles')
     .update({ status })
     .eq('id', id)
-    .not('professor_no', 'is', null)
+    .eq('is_professor', true)
     .neq('role', 'admin')
     .select('id')
   if (error) throw new Error(error.message)
@@ -120,7 +114,7 @@ export async function archiveProfessor(id: string) {
     .from('profiles')
     .update({ archived_at: new Date().toISOString() })
     .eq('id', id)
-    .not('professor_no', 'is', null)
+    .eq('is_professor', true)
     .eq('role', 'student')
     .select('id')
   if (error) throw new Error(error.message)
@@ -139,7 +133,7 @@ export async function restoreProfessor(id: string) {
     .from('profiles')
     .update({ archived_at: null })
     .eq('id', id)
-    .not('professor_no', 'is', null)
+    .eq('is_professor', true)
     .neq('role', 'admin')
     .select('id')
   if (error) throw new Error(error.message)
@@ -156,6 +150,65 @@ export async function deleteProfessor(id: string) {
 
   const { error } = await supabase.rpc('delete_professor', { target_profile: id })
   if (error) throw new Error(error.message)
+}
+
+// ---------------------------------------------------------------------------
+// Adding professors. Only admins can, through the add_professor database
+// function (see the professor_invites migration).
+// ---------------------------------------------------------------------------
+
+// An email OSAS added as a professor that hasn't signed in yet.
+export type ProfessorInvite = {
+  email: string
+  department: string
+  created_at: string
+}
+
+// Makes the account with this email a professor ('linked'), or, when the email
+// has no account yet, invites it so it becomes one on its first sign-in ('invited').
+export async function addProfessor(email: string, department: string): Promise<'linked' | 'invited'> {
+  if (sampleStore) {
+    sampleStore.push({
+      id: crypto.randomUUID(),
+      name: email.trim(),
+      email: email.trim().toLowerCase(),
+      department,
+      status: 'active',
+      archived_at: null,
+      created_at: new Date().toISOString(),
+    })
+    return 'linked'
+  }
+
+  const { data, error } = await supabase.rpc('add_professor', {
+    target_email: email,
+    new_department: department,
+  })
+  if (error) throw new Error(error.message)
+  return data === 'invited' ? 'invited' : 'linked'
+}
+
+// Invites waiting for their first sign-in, oldest first. Empty until the
+// professor_invites migration is in Supabase.
+export async function fetchProfessorInvites(): Promise<ProfessorInvite[]> {
+  if (sampleStore) return []
+
+  const { data, error } = await supabase
+    .from('professor_invites')
+    .select('email, department, created_at')
+    .order('created_at')
+  if (error) {
+    // PGRST205: table not in PostgREST's schema cache. 42P01: table doesn't exist.
+    if (error.code === 'PGRST205' || error.code === '42P01') return []
+    throw new Error(error.message)
+  }
+  return data
+}
+
+export async function cancelProfessorInvite(email: string) {
+  const { data, error } = await supabase.from('professor_invites').delete().eq('email', email).select('email')
+  if (error) throw new Error(error.message)
+  if (data.length === 0) throw new Error('This invite was not found. They may have just signed in.')
 }
 
 // Row-level security hides rows instead of raising an error, so 0 rows means "not allowed or gone".

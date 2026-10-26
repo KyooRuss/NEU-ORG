@@ -158,6 +158,72 @@ export async function deleteProfessor(id: string) {
   if (error) throw new Error(error.message)
 }
 
+// ---------------------------------------------------------------------------
+// Adding professors. Only admins can, through the add_professor database
+// function (see the professor_invites migration).
+// ---------------------------------------------------------------------------
+
+// An email OSAS added as a professor that hasn't signed in yet.
+export type ProfessorInvite = {
+  email: string
+  professor_no: string
+  department: string
+  created_at: string
+}
+
+// Makes the account with this email a professor ('linked'), or, when the email
+// has no account yet, invites it so it becomes one on its first sign-in ('invited').
+export async function addProfessor(
+  email: string,
+  professorNo: string,
+  department: string,
+): Promise<'linked' | 'invited'> {
+  if (sampleStore) {
+    sampleStore.push({
+      id: crypto.randomUUID(),
+      professor_no: professorNo.trim(),
+      name: email.trim(),
+      email: email.trim().toLowerCase(),
+      department,
+      status: 'active',
+      archived_at: null,
+      created_at: new Date().toISOString(),
+    })
+    return 'linked'
+  }
+
+  const { data, error } = await supabase.rpc('add_professor', {
+    target_email: email,
+    new_professor_no: professorNo,
+    new_department: department,
+  })
+  if (error) throw new Error(error.message)
+  return data === 'invited' ? 'invited' : 'linked'
+}
+
+// Invites waiting for their first sign-in, oldest first. Empty until the
+// professor_invites migration is in Supabase.
+export async function fetchProfessorInvites(): Promise<ProfessorInvite[]> {
+  if (sampleStore) return []
+
+  const { data, error } = await supabase
+    .from('professor_invites')
+    .select('email, professor_no, department, created_at')
+    .order('created_at')
+  if (error) {
+    // PGRST205: table not in PostgREST's schema cache. 42P01: table doesn't exist.
+    if (error.code === 'PGRST205' || error.code === '42P01') return []
+    throw new Error(error.message)
+  }
+  return data
+}
+
+export async function cancelProfessorInvite(email: string) {
+  const { data, error } = await supabase.from('professor_invites').delete().eq('email', email).select('email')
+  if (error) throw new Error(error.message)
+  if (data.length === 0) throw new Error('This invite was not found. They may have just signed in.')
+}
+
 // Row-level security hides rows instead of raising an error, so 0 rows means "not allowed or gone".
 function notFound() {
   return new Error('This professor was not found, or your account is not allowed to change it.')

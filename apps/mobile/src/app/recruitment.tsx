@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import ApplyModal from '@/components/apply-modal';
 import BottomNav from '@/components/bottom-nav';
+import OptionPickerModal from '@/components/option-picker-modal';
 import Pressable from '@/components/pressable';
 import { BRAND_GRADIENT } from '@/constants/brand';
 import { fetchMyApplyStates, type ApplyState } from '@/lib/applications';
@@ -25,6 +26,8 @@ import { supabase } from '@/lib/supabase';
 
 // Room at the bottom of the page for the navigation bar.
 const NAV_SPACE = 110;
+// The Category picker's "no filter" choice.
+const ALL = '';
 
 // Organizations recruiting right now. Students apply from here; officers
 // accept or decline on the web dashboard.
@@ -37,6 +40,8 @@ export default function RecruitmentScreen() {
   const [loadError, setLoadError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
+  const [category, setCategory] = useState(ALL);
+  const [pickerOpen, setPickerOpen] = useState(false);
   // The organization whose application form is open.
   const [applyingTo, setApplyingTo] = useState<OrgListItem | null>(null);
 
@@ -80,15 +85,35 @@ export default function RecruitmentScreen() {
     }
   }, [load, userId]);
 
+  // Every category the recruiting organizations use, A to Z. Categories are
+  // free text, so they're compared ignoring case.
+  const categoryOptions = useMemo(() => {
+    const byKey = new Map<string, string>();
+    for (const org of orgs ?? []) {
+      for (const name of org.categories) {
+        const key = name.trim().toLowerCase();
+        if (key && !byKey.has(key)) byKey.set(key, name.trim());
+      }
+    }
+    const names = [...byKey.values()].sort((a, b) => a.localeCompare(b));
+    return [{ value: ALL, label: 'All Categories' }, ...names.map((name) => ({ value: name, label: name }))];
+  }, [orgs]);
+
   const visible = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query) return orgs ?? [];
-    return (orgs ?? []).filter(
-      (org) =>
-        org.name.toLowerCase().includes(query) ||
-        org.categories.some((name) => name.toLowerCase().includes(query)),
-    );
-  }, [orgs, search]);
+    const picked = category.toLowerCase();
+    return (orgs ?? []).filter((org) => {
+      const categories = org.categories.map((name) => name.trim().toLowerCase());
+      if (picked && !categories.includes(picked)) return false;
+      if (!query) return true;
+      return org.name.toLowerCase().includes(query) || categories.some((name) => name.includes(query));
+    });
+  }, [orgs, search, category]);
+
+  function goBack() {
+    if (router.canGoBack()) router.back();
+    else router.replace('/home');
+  }
 
   function emptyText() {
     if (loadError) return "Organizations couldn't load. Check your connection and pull down to try again.";
@@ -99,27 +124,40 @@ export default function RecruitmentScreen() {
   return (
     <View style={styles.screen}>
       <StatusBar style="light" />
-      <LinearGradient {...BRAND_GRADIENT} style={[styles.header, { paddingTop: insets.top + 16 }]}>
+      <LinearGradient {...BRAND_GRADIENT} style={[styles.header, { paddingTop: insets.top + 32 }]}>
         <View style={styles.column}>
-          <Text style={styles.title}>Recruitment</Text>
-          <Text style={styles.subtitle}>Organizations open for membership</Text>
-          <View style={styles.searchBox}>
-            <Ionicons name="search-outline" size={18} color="#71717A" />
-            <TextInput
-              value={search}
-              onChangeText={setSearch}
-              placeholder="Search organizations..."
-              placeholderTextColor="#A1A1AA"
-              returnKeyType="search"
-              autoCorrect={false}
-              style={styles.searchInput}
-              accessibilityLabel="Search organizations"
-            />
-            {search.length > 0 && (
-              <Pressable onPress={() => setSearch('')} hitSlop={8} accessibilityLabel="Clear search">
-                <Ionicons name="close-circle" size={18} color="#A1A1AA" />
-              </Pressable>
-            )}
+          <View style={styles.headerRow}>
+            <Pressable onPress={goBack} hitSlop={10} style={styles.back} accessibilityRole="button" accessibilityLabel="Back">
+              <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+            </Pressable>
+            <Text style={styles.title}>Recruitment</Text>
+          </View>
+          <View style={styles.searchRow}>
+            <View style={styles.searchBox}>
+              <Ionicons name="search-outline" size={18} color={MUTED} />
+              <TextInput
+                value={search}
+                onChangeText={setSearch}
+                placeholder="Search Organization..."
+                placeholderTextColor={MUTED}
+                returnKeyType="search"
+                autoCorrect={false}
+                style={styles.searchInput}
+                accessibilityLabel="Search organizations"
+              />
+              {search.length > 0 && (
+                <Pressable onPress={() => setSearch('')} hitSlop={8} accessibilityLabel="Clear search">
+                  <Ionicons name="close-circle" size={18} color="#A1A1AA" />
+                </Pressable>
+              )}
+            </View>
+            <Pressable
+              onPress={() => setPickerOpen(true)}
+              style={({ pressed }) => [styles.filterButton, category !== ALL && styles.filterActive, pressed && styles.pressed]}
+              accessibilityRole="button"
+              accessibilityLabel={`Filter by category: ${category || 'All'}`}>
+              <Ionicons name="funnel-outline" size={18} color={category !== ALL ? '#3549D6' : '#3F3F46'} />
+            </Pressable>
           </View>
         </View>
       </LinearGradient>
@@ -157,6 +195,19 @@ export default function RecruitmentScreen() {
         style={styles.list}
         contentContainerStyle={{ paddingTop: 16, paddingBottom: NAV_SPACE + insets.bottom }}
       />
+
+      {pickerOpen && (
+        <OptionPickerModal
+          title="Category"
+          options={categoryOptions}
+          selected={category}
+          onSelect={(value) => {
+            setCategory(value);
+            setPickerOpen(false);
+          }}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
 
       {applyingTo && userId && (
         <ApplyModal
@@ -258,20 +309,35 @@ const styles = StyleSheet.create({
   column: { width: '100%', maxWidth: 480, alignSelf: 'center', paddingHorizontal: 20 },
   pressed: { opacity: 0.7 },
 
-  header: { paddingBottom: 20 },
-  title: { fontFamily: 'Poppins_600SemiBold', fontSize: 22, color: '#FFFFFF' },
-  subtitle: { fontFamily: 'Poppins_400Regular', fontSize: 12, color: 'rgba(255, 255, 255, 0.85)' },
+  // Same as the Organizations header: rounded bottom corners, with room
+  // between the title and the search row.
+  header: { paddingBottom: 20, borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
+  headerRow: { flexDirection: 'row', alignItems: 'center' },
+  back: { marginLeft: -6, padding: 2 },
+  title: { marginLeft: 6, fontFamily: 'Poppins_500Medium', fontSize: 16, color: '#FFFFFF' },
+  searchRow: { marginTop: 56, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  // A rounded gray search pill with a round filter button beside it.
   searchBox: {
-    marginTop: 14,
-    height: 46,
+    flex: 1,
+    height: 42,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
+    borderRadius: 21,
+    backgroundColor: '#E9EAEF',
     paddingHorizontal: 14,
   },
   searchInput: { flex: 1, height: '100%', fontFamily: 'Poppins_400Regular', fontSize: 13, color: INK },
+  filterButton: {
+    width: 42,
+    height: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 21,
+    backgroundColor: '#E9EAEF',
+  },
+  // Tinted while a category is picked, since the button has no text to show it.
+  filterActive: { backgroundColor: '#DCE3FD' },
 
   list: { flex: 1 },
   loading: { marginVertical: 24 },

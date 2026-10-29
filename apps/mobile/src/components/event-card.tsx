@@ -22,7 +22,7 @@ export default function EventCard({ event, audience, rating, onPress }: Props) {
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
       accessibilityRole="button"
-      accessibilityLabel={`${event.title} by ${event.org.name}, view details`}>
+      accessibilityLabel={`${event.title} by ${event.org.name}, ${rating === 'unrated' ? 'rate event' : 'view details'}`}>
       {event.posterUrl ? (
         <Image source={{ uri: event.posterUrl }} style={styles.poster} contentFit="cover" />
       ) : (
@@ -56,10 +56,11 @@ export default function EventCard({ event, audience, rating, onPress }: Props) {
         <Detail icon="time-outline" text={formatEventTime(event.startsAt)} />
         <Detail icon="location-outline" text={event.venue} />
 
+        {/* Past events ask for a rating where upcoming ones say View Details. */}
         <View style={styles.footer}>
-          {rating === 'rated' && <Text style={styles.rated}>Rated ✓</Text>}
-          {rating === 'unrated' && <Text style={styles.rate}>Rate event</Text>}
-          <Text style={styles.link}>View Details</Text>
+          {rating === 'rated' && <Text style={[styles.end, styles.rated]}>Rated ✓</Text>}
+          {rating === 'unrated' && <Text style={[styles.end, styles.rate]}>Rate Event</Text>}
+          {!rating && <Text style={[styles.end, styles.link]}>View Details</Text>}
         </View>
       </View>
     </Pressable>
@@ -110,10 +111,10 @@ const styles = StyleSheet.create({
   detail: { marginTop: 3, flexDirection: 'row', alignItems: 'center', gap: 6 },
   detailText: { flex: 1, fontFamily: 'Poppins_400Regular', fontSize: 12, color: '#3F3F46' },
   footer: { marginTop: 'auto', paddingTop: 8, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  rated: { fontFamily: 'Poppins_500Medium', fontSize: 11, color: '#15803D' },
-  rate: { fontFamily: 'Poppins_500Medium', fontSize: 11, color: '#B45309' },
+  end: { marginLeft: 'auto' },
+  rated: { fontFamily: 'Poppins_500Medium', fontSize: 12, color: '#15803D' },
+  rate: { fontFamily: 'Poppins_600SemiBold', fontSize: 12, color: '#CA8A04' },
   link: {
-    marginLeft: 'auto',
     fontFamily: 'Poppins_600SemiBold',
     fontSize: 12,
     color: INK,

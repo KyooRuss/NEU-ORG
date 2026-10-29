@@ -59,6 +59,8 @@ export type EventInput = {
   audience_colleges: string[]
   // Empty when there's no sign-up form.
   registration_url: string
+  // What students enter to rate the event. See normalizeRatingCode.
+  rating_code: string
 }
 
 export type EventComment = {
@@ -153,6 +155,7 @@ export function isResubmitted(event: OrgEvent) {
 
 let sampleStore: OrgEvent[] | null = null
 let sampleComments: EventComment[] = []
+const sampleRatingCodes = new Map<string, string>()
 
 export function usingSampleEvents() {
   return sampleStore !== null
@@ -527,10 +530,11 @@ export async function createEvent(
   input: EventInput,
   poster: File,
 ) {
-  const values = clean(input)
+  const { rating_code: ratingCode, ...values } = clean(input)
   const id = crypto.randomUUID()
 
   if (sampleStore) {
+    sampleRatingCodes.set(id, ratingCode)
     const now = new Date().toISOString()
     sampleStore.push({
       id,
@@ -559,14 +563,23 @@ export async function createEvent(
     await removePosters([posterPath])
     throw new Error(error.message)
   }
+
+  // Saved right after the request. If this fails the request is already in,
+  // so the officer can set the code from the event's details instead.
+  await saveRatingCode(id, ratingCode).catch((caught: Error) => {
+    throw new Error(
+      `Your request was submitted, but the rating code couldn’t be saved (${caught.message}). Open the event in Event Posts to set it.`,
+    )
+  })
 }
 
 // Saves the officer's changes to a request in revision and sends it back to the admin.
 // Leave out the poster to keep the current one.
 export async function resubmitEvent(event: OrgEvent, input: EventInput, poster: File | null) {
-  const values = clean(input)
+  const { rating_code: ratingCode, ...values } = clean(input)
 
   if (sampleStore) {
+    sampleRatingCodes.set(event.id, ratingCode)
     Object.assign(findReviewable(event.id, ['revision']), values, {
       poster_path: poster ? URL.createObjectURL(poster) : event.poster_path,
       status: 'pending',
@@ -594,6 +607,52 @@ export async function resubmitEvent(event: OrgEvent, input: EventInput, poster: 
 
   // Only drop the replaced poster once the new one is saved.
   if (poster) await removePosters([event.poster_path])
+  await saveRatingCode(event.id, ratingCode)
+}
+
+// ---------------------------------------------------------------------------
+// Rating codes: students enter the event's code in the mobile app before they
+// can rate it. Only the event's officers and admins can read it.
+// ---------------------------------------------------------------------------
+
+// Officers choose the code themselves; nothing is generated.
+export const RATING_CODE_LENGTH = 6
+export const RATING_CODE_HINT = 'Exactly 6 letters or numbers'
+
+// Capitals with no spaces, the way the database stores it.
+export function normalizeRatingCode(code: string) {
+  return code.replace(/\s/g, '').toUpperCase()
+}
+
+export function isValidRatingCode(code: string) {
+  return /^[A-Z0-9]{6}$/.test(normalizeRatingCode(code))
+}
+
+// The event's code, or null when it has none (events requested before codes existed).
+export async function fetchRatingCode(eventId: string): Promise<string | null> {
+  if (sampleStore) return sampleRatingCodes.get(eventId) ?? null
+
+  const { data, error } = await supabase
+    .from('event_rating_codes')
+    .select('code')
+    .eq('event_id', eventId)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  return data?.code ?? null
+}
+
+// Sets or changes the code. Officers can do this at any time, even after approval.
+export async function saveRatingCode(eventId: string, code: string) {
+  const clean = normalizeRatingCode(code)
+  if (!isValidRatingCode(clean)) throw new Error('The rating code must be exactly 6 letters or numbers.')
+
+  if (sampleStore) {
+    sampleRatingCodes.set(eventId, clean)
+    return
+  }
+
+  const { error } = await supabase.from('event_rating_codes').upsert({ event_id: eventId, code: clean })
+  if (error) throw new Error(error.message)
 }
 
 // ---------------------------------------------------------------------------
@@ -632,6 +691,7 @@ function clean(input: EventInput) {
     // The database only accepts colleges when the audience is 'colleges'.
     audience_colleges: input.audience === 'colleges' ? input.audience_colleges : [],
     registration_url: input.registration_url.trim() || null,
+    rating_code: normalizeRatingCode(input.rating_code),
   }
 }
 

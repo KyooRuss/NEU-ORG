@@ -152,6 +152,11 @@ export default function EventsScreen() {
     return 'No events match your search.';
   }
 
+  function goBack() {
+    if (router.canGoBack()) router.back();
+    else router.replace('/home');
+  }
+
   function switchTo(next: EventWhen) {
     if (next === when) return;
     // Show the spinner while the other list loads.
@@ -163,17 +168,22 @@ export default function EventsScreen() {
   return (
     <View style={styles.screen}>
       <StatusBar style="light" />
-      <LinearGradient {...BRAND_GRADIENT} style={[styles.header, { paddingTop: insets.top + 16 }]}>
+      <LinearGradient {...BRAND_GRADIENT} style={[styles.header, { paddingTop: insets.top + 32 }]}>
         <View style={styles.column}>
-          <Text style={styles.title}>{when === 'upcoming' ? 'Upcoming Events' : 'Past Events'}</Text>
+          <View style={styles.headerRow}>
+            <Pressable onPress={goBack} hitSlop={10} style={styles.back} accessibilityRole="button" accessibilityLabel="Back">
+              <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+            </Pressable>
+            <Text style={styles.title}>{when === 'upcoming' ? 'Upcoming Events' : 'Past Events'}</Text>
+          </View>
           <View style={styles.searchRow}>
             <View style={styles.searchBox}>
-              <Ionicons name="search-outline" size={18} color="#71717A" />
+              <Ionicons name="search-outline" size={18} color={MUTED} />
               <TextInput
                 value={search}
                 onChangeText={setSearch}
                 placeholder="Search Event..."
-                placeholderTextColor="#A1A1AA"
+                placeholderTextColor={MUTED}
                 returnKeyType="search"
                 autoCorrect={false}
                 style={styles.searchInput}
@@ -187,13 +197,10 @@ export default function EventsScreen() {
             </View>
             <Pressable
               onPress={() => setPickerOpen(true)}
-              style={({ pressed }) => [styles.filterButton, pressed && styles.pressed]}
+              style={({ pressed }) => [styles.filterButton, department !== ALL && styles.filterActive, pressed && styles.pressed]}
               accessibilityRole="button"
               accessibilityLabel={`Filter by department: ${department || 'All'}`}>
-              <Text style={styles.filterText} numberOfLines={1}>
-                {department ? department.replace(/^College of /, '') : 'Filter'}
-              </Text>
-              <Ionicons name="caret-down" size={12} color="#3549D6" />
+              <Ionicons name="funnel-outline" size={18} color={department !== ALL ? '#3549D6' : '#3F3F46'} />
             </Pressable>
           </View>
 
@@ -284,33 +291,37 @@ const styles = StyleSheet.create({
   column: { width: '100%', maxWidth: 480, alignSelf: 'center', paddingHorizontal: 20 },
   pressed: { opacity: 0.7 },
 
-  header: { paddingBottom: 16 },
-  title: { fontFamily: 'Poppins_600SemiBold', fontSize: 22, color: '#FFFFFF' },
-  searchRow: { marginTop: 14, flexDirection: 'row', gap: 8 },
+  // Same as the Organizations header: rounded bottom corners, with room
+  // between the title and the search row.
+  header: { paddingBottom: 20, borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
+  headerRow: { flexDirection: 'row', alignItems: 'center' },
+  back: { marginLeft: -6, padding: 2 },
+  title: { marginLeft: 6, fontFamily: 'Poppins_500Medium', fontSize: 16, color: '#FFFFFF' },
+  searchRow: { marginTop: 56, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  // A rounded gray search pill with a round filter button beside it.
   searchBox: {
     flex: 1,
-    height: 46,
+    height: 42,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
+    borderRadius: 21,
+    backgroundColor: '#E9EAEF',
     paddingHorizontal: 14,
   },
   searchInput: { flex: 1, height: '100%', fontFamily: 'Poppins_400Regular', fontSize: 13, color: INK },
   filterButton: {
-    maxWidth: 140,
-    height: 46,
-    flexDirection: 'row',
+    width: 42,
+    height: 42,
     alignItems: 'center',
-    gap: 6,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 14,
+    justifyContent: 'center',
+    borderRadius: 21,
+    backgroundColor: '#E9EAEF',
   },
-  filterText: { flexShrink: 1, fontFamily: 'Poppins_600SemiBold', fontSize: 13, color: '#3549D6' },
+  // Tinted while a department is picked, since the button has no text to show it.
+  filterActive: { backgroundColor: '#DCE3FD' },
   toggle: {
-    marginTop: 12,
+    marginTop: 14,
     flexDirection: 'row',
     borderRadius: 12,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',

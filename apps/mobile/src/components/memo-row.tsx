@@ -5,8 +5,7 @@ import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
 import Pressable from '@/components/pressable';
 import { formatMemoDate, openMemorandum, type Memorandum } from '@/lib/memorandums';
 
-// One memorandum: a file icon, the title, and the file name with the date it
-// was posted. Tapping it opens the file. Used on Home and the Memorandums screen.
+// One memorandum: a file icon, the title, and the date it was posted. Tapping it opens the file. Used on Home and the Memorandums screen.
 export default function MemoRow({ memo }: { memo: Memorandum }) {
   const [opening, setOpening] = useState(false);
   const isImage = /\.(png|jpe?g)$/i.test(memo.fileName);
@@ -37,13 +36,13 @@ export default function MemoRow({ memo }: { memo: Memorandum }) {
           {memo.title}
         </Text>
         <Text style={styles.meta} numberOfLines={1}>
-          {memo.fileName} · {formatMemoDate(memo.createdAt)}
+          {formatMemoDate(memo.createdAt)}
         </Text>
       </View>
       {opening ? (
         <ActivityIndicator color="#3549D6" style={styles.end} />
       ) : (
-        <Ionicons name="chevron-forward" size={18} color="#A1A1AA" style={styles.end} />
+        <Text style={[styles.view, styles.end]}>View</Text>
       )}
     </Pressable>
   );
@@ -79,5 +78,7 @@ const styles = StyleSheet.create({
   text: { flex: 1, marginLeft: 12 },
   title: { fontFamily: 'Poppins_600SemiBold', fontSize: 14, lineHeight: 20, color: INK },
   meta: { marginTop: 2, fontFamily: 'Poppins_400Regular', fontSize: 12, color: '#71717A' },
-  end: { marginLeft: 8 },
+  // Bottom-right corner, level with the date.
+  end: { marginLeft: 8, alignSelf: 'flex-end' },
+  view: { fontFamily: 'Poppins_500Medium', fontSize: 12, color: '#4F46E5' },
 });

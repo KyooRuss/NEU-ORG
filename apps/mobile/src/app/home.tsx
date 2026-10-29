@@ -28,6 +28,7 @@ import {
   onReadChanged,
   type NotificationItem,
 } from '@/lib/notifications';
+import { fetchMyOrganizations, type OrgListItem } from '@/lib/organizations';
 import { fetchProfile, type Profile } from '@/lib/profile';
 import { fetchRecommendations, type RecommendedOrg } from '@/lib/recommendations';
 import { supabase } from '@/lib/supabase';
@@ -49,7 +50,16 @@ function hamiSays(news: HamiNews): { mood: HamiMood; title: string | null; text:
   if (!news.item) {
     return { mood: 'sleepy', title: null, text: 'You’re all caught up! I’ll tell you when something new comes up.' };
   }
-  return { mood: HAMI_MOOD_BY_KIND[news.item.kind], title: news.item.title, text: news.item.body };
+  // A memo's text is only "Tap to read it.", so Hami leaves it out.
+  const text = news.item.kind === 'memo' ? '' : news.item.body;
+  return { mood: HAMI_MOOD_BY_KIND[news.item.kind], title: news.item.title, text };
+}
+
+// Hami keeps it short: the title shows in full, the text up to this many characters.
+const HAMI_MAX_TEXT = 15;
+
+function clip(text: string, max: number) {
+  return text.length > max ? `${text.slice(0, max).trimEnd()}…` : text;
 }
 
 // How many memorandums Home previews; "See all" opens the rest.
@@ -57,7 +67,7 @@ const MEMO_PREVIEW = 2;
 
 // The student dashboard. Memorandums shows the newest ones admins posted;
 // Recommended For You is live (recommend_for_me() in the database); My
-// Organizations is a placeholder until memberships are shown.
+// Organizations lists the ones they've joined and is hidden until they join one.
 // Styled with StyleSheet so every spacing and color applies the same on web and phones.
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -70,6 +80,8 @@ export default function HomeScreen() {
   const [news, setNews] = useState<HamiNews>({ status: 'loading' });
   // Empty while loading or if they can't load; the section only shows when there are some.
   const [memos, setMemos] = useState<Memorandum[]>([]);
+  // Same: My Organizations only shows once they've joined one.
+  const [myOrgs, setMyOrgs] = useState<OrgListItem[]>([]);
 
   // The Hami images are square (about 1254 x 1254).
   const hamiSize = Math.min(Math.max(width * 0.3, 110), 140);
@@ -95,6 +107,11 @@ export default function HomeScreen() {
         .then((loaded) => active && setMemos(loaded))
         .catch(() => {
           // Leave the section hidden; the Memorandums screen shows the error.
+        });
+      fetchMyOrganizations(data.session.user.id)
+        .then((loaded) => active && setMyOrgs(loaded))
+        .catch(() => {
+          // Leave the section hidden.
         });
     });
 
@@ -168,7 +185,8 @@ export default function HomeScreen() {
             <View style={styles.hamiRow}>
               <Image
                 source={HAMI_IMAGES[hami.mood]}
-                style={{ width: hamiSize, height: hamiSize }}
+                // Stays at the bottom, on the panel, even when a long message makes the bubble taller.
+                style={{ width: hamiSize, height: hamiSize, alignSelf: 'flex-end' }}
                 contentFit="contain"
                 transition={200}
                 accessibilityLabel={`Hami, the NEU-ORG mascot, looks ${hami.mood}`}
@@ -181,16 +199,12 @@ export default function HomeScreen() {
                   disabled={!newsItem}
                   style={({ pressed }) => [styles.bubble, pressed && styles.pressed]}
                   accessibilityRole={newsItem ? 'button' : 'text'}
+                  // Screen readers still get the whole message.
+                  accessibilityLabel={`Hami: ${[hami.title, hami.text].filter(Boolean).join('. ')}`}
                   accessibilityHint={newsItem ? 'Opens this notification' : undefined}>
                   <Text style={styles.bubbleName}>Hami</Text>
-                  {hami.title && (
-                    <Text style={styles.bubbleTitle} numberOfLines={2}>
-                      {hami.title}
-                    </Text>
-                  )}
-                  <Text style={styles.bubbleText} numberOfLines={hami.title ? 2 : undefined}>
-                    {hami.text}
-                  </Text>
+                  {hami.title && <Text style={styles.bubbleTitle}>{hami.title}</Text>}
+                  {hami.text !== '' && <Text style={styles.bubbleText}>{clip(hami.text, HAMI_MAX_TEXT)}</Text>}
                 </Pressable>
               </View>
             </View>
@@ -213,6 +227,7 @@ export default function HomeScreen() {
                     <Ionicons name="chevron-forward" size={14} color="#3549D6" />
                   </Pressable>
                 </View>
+                <Text style={styles.sectionSubtitle}>View memorandums related to events and activities.</Text>
                 <View style={styles.cards}>
                   {memos.map((memo) => (
                     <MemoRow key={memo.id} memo={memo} />
@@ -235,13 +250,21 @@ export default function HomeScreen() {
             )}
             <View style={styles.cards}>
               {recommendations?.map((org) => (
-                <OrgCard key={org.id} org={org} />
+                <OrgCard key={org.id} org={org} subtitle={org.reason} showOpen />
               ))}
             </View>
 
-            <Text style={[styles.sectionTitle, styles.nextSection]}>My Organizations</Text>
-            <Text style={styles.sectionSubtitle}>Organizations you’ve joined</Text>
-            <Notice text="Organizations you join will appear here, with their latest events and announcements." />
+            {myOrgs.length > 0 && (
+              <>
+                <Text style={[styles.sectionTitle, styles.nextSection]}>My Organizations</Text>
+                <Text style={styles.sectionSubtitle}>Organizations you’ve joined</Text>
+                <View style={styles.cards}>
+                  {myOrgs.map((org) => (
+                    <OrgCard key={org.id} org={org} subtitle={org.description} />
+                  ))}
+                </View>
+              </>
+            )}
           </View>
         </View>
       </ScrollView>
@@ -270,7 +293,16 @@ export default function HomeScreen() {
 }
 
 // Opens the organization's profile, like the cards in the Organizations list.
-function OrgCard({ org }: { org: RecommendedOrg }) {
+// The "Open" badge (recruiting now) is only useful to students who haven't joined.
+function OrgCard({
+  org,
+  subtitle,
+  showOpen = false,
+}: {
+  org: Pick<RecommendedOrg, 'id' | 'name' | 'logoUrl' | 'recruitmentOpen'>;
+  subtitle: string | null;
+  showOpen?: boolean;
+}) {
   return (
     <Pressable
       onPress={() => router.push({ pathname: '/organization/[id]', params: { id: org.id } })}
@@ -287,11 +319,13 @@ function OrgCard({ org }: { org: RecommendedOrg }) {
         <Text style={styles.orgName} numberOfLines={1}>
           {org.name}
         </Text>
-        <Text style={styles.reason} numberOfLines={2}>
-          {org.reason}
-        </Text>
+        {subtitle && (
+          <Text style={styles.reason} numberOfLines={2}>
+            {subtitle}
+          </Text>
+        )}
       </View>
-      {org.recruitmentOpen && (
+      {showOpen && org.recruitmentOpen && (
         <View style={styles.openBadge}>
           <Text style={styles.openText}>Open</Text>
         </View>
@@ -318,9 +352,11 @@ const styles = StyleSheet.create({
   column: { width: '100%', maxWidth: 480, alignSelf: 'center', paddingHorizontal: 20 },
   pressed: { opacity: 0.7 },
 
-  header: { paddingBottom: 44 },
+  // Matches the panel's overlap, so the panel starts right under Hami and the
+  // image's cropped bottom edge sits on it instead of floating over the blue.
+  header: { paddingBottom: 24 },
   headerRow: { flexDirection: 'row', alignItems: 'center' },
-  greeting: { flex: 1, fontFamily: 'Poppins_600SemiBold', fontSize: 22, color: '#FFFFFF' },
+  greeting: { flex: 1, fontFamily: 'Poppins_600SemiBold', fontSize: 18, color: '#FFFFFF' },
   avatar: {
     height: 40,
     width: 40,
@@ -331,8 +367,9 @@ const styles = StyleSheet.create({
   },
   avatarText: { fontFamily: 'Poppins_600SemiBold', fontSize: 16, color: '#FFFFFF' },
 
-  hamiRow: { marginTop: 14, flexDirection: 'row', alignItems: 'center' },
-  bubbleWrap: { flex: 1, marginLeft: 6, flexDirection: 'row', alignItems: 'center' },
+  hamiRow: { marginTop: 32, flexDirection: 'row', alignItems: 'center' },
+  // The bottom margin lifts the bubble above center, nearer Hami's face.
+  bubbleWrap: { flex: 1, marginLeft: 6, marginBottom: 32, flexDirection: 'row', alignItems: 'center' },
   bubbleTail: {
     width: 14,
     height: 14,
@@ -340,8 +377,9 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '45deg' }],
     backgroundColor: 'rgba(255, 255, 255, 0.22)',
   },
+  // Hugs its text instead of filling the row, but still wraps when it's long.
   bubble: {
-    flex: 1,
+    flexShrink: 1,
     borderRadius: 18,
     backgroundColor: 'rgba(255, 255, 255, 0.22)',
     paddingHorizontal: 16,
@@ -358,10 +396,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#EEF1FB',
     paddingTop: 24,
   },
-  sectionTitle: { fontFamily: 'Poppins_600SemiBold', fontSize: 20, color: INK },
+  // Semibold headings in the phone's own system font (no fontFamily), in the web
+  // dashboard's brand navy.
+  sectionTitle: { fontSize: 18, lineHeight: 24, fontWeight: '600', color: '#1A2E78' },
   sectionSubtitle: { marginBottom: 14, fontFamily: 'Poppins_400Regular', fontSize: 12, color: MUTED },
   nextSection: { marginTop: 28 },
-  sectionHeader: { marginBottom: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   seeAll: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   seeAllText: { fontFamily: 'Poppins_600SemiBold', fontSize: 13, color: '#3549D6' },
   loading: { marginVertical: 24 },

@@ -1,4 +1,4 @@
-import { CalendarDays, Clock, ImageOff, Link as LinkIcon, MapPin, Users } from 'lucide-react'
+import { CalendarDays, Clock, ImageOff, KeyRound, Link as LinkIcon, MapPin, Users } from 'lucide-react'
 import { type FormEvent, type ReactNode, useEffect, useState } from 'react'
 
 import {
@@ -8,13 +8,18 @@ import {
   type EventComment,
   type EventSection,
   fetchEventComments,
+  fetchRatingCode,
   formatAudience,
   formatDay,
   formatEventDate,
   isResubmitted,
+  normalizeRatingCode,
   type OrgEvent,
   posterUrl,
+  RATING_CODE_HINT,
+  RATING_CODE_LENGTH,
   requestRevision,
+  saveRatingCode,
 } from '../lib/events'
 import { ResubmittedTag, StatusTag } from './EventTable'
 import Modal, { dangerButton, primaryButton, secondaryButton } from './Modal'
@@ -218,6 +223,11 @@ export default function EventReviewModal({
               Submitted {formatDay(event.submitted_at)}
               {event.approved_at && ` · Approved ${formatDay(event.approved_at)}`}
             </IconLine>
+            {readOnly && (
+              <IconLine icon={KeyRound}>
+                <RatingCode eventId={event.id} />
+              </IconLine>
+            )}
           </ul>
 
           {event.status === 'declined' && event.decline_reason && (
@@ -295,6 +305,99 @@ export default function EventReviewModal({
         </form>
       )}
     </Modal>
+  )
+}
+
+// The officer's side: the code students enter to rate the event, with a way to
+// set or change it (e.g. for events requested before codes existed).
+function RatingCode({ eventId }: { eventId: string }) {
+  // undefined while loading, null when the event has no code.
+  const [code, setCode] = useState<string | null | undefined>(undefined)
+  const [loadError, setLoadError] = useState(false)
+  const [draft, setDraft] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetchRatingCode(eventId)
+      .then((loaded) => {
+        if (!cancelled) setCode(loaded)
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [eventId])
+
+  async function save() {
+    if (draft === null) return
+    setSaving(true)
+    setError(null)
+    try {
+      await saveRatingCode(eventId, draft)
+      setCode(normalizeRatingCode(draft))
+      setDraft(null)
+    } catch (caught) {
+      setError((caught as Error).message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loadError) return <>The rating code couldn’t load. Close and open the event again.</>
+  if (code === undefined) return <>Loading the rating code…</>
+
+  if (draft !== null) {
+    return (
+      <span className="block">
+        <span className="flex flex-wrap items-center gap-2">
+          <input
+            value={draft}
+            onChange={(change) => setDraft(normalizeRatingCode(change.target.value))}
+            maxLength={RATING_CODE_LENGTH}
+            autoComplete="off"
+            spellCheck={false}
+            placeholder="e.g. TECH26"
+            aria-label="Rating code"
+            className="w-36 rounded-lg border border-zinc-200 bg-[#f4f7fb] px-3 py-1 font-mono tracking-widest outline-none focus:border-brand-blue/50 focus:ring-2 focus:ring-brand-blue/20"
+          />
+          <button type="button" onClick={() => void save()} disabled={saving} className="font-semibold text-brand-blue underline">
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+          <button type="button" onClick={() => setDraft(null)} disabled={saving} className="text-zinc-500 underline">
+            Cancel
+          </button>
+        </span>
+        <span className="mt-1 block text-xs text-zinc-500">{RATING_CODE_HINT}.</span>
+        {error && (
+          <span role="alert" className="mt-1 block text-xs text-red-700">
+            {error}
+          </span>
+        )}
+      </span>
+    )
+  }
+
+  return (
+    <>
+      {code ? (
+        <>
+          Rating code: <strong className="font-mono tracking-widest">{code}</strong>
+        </>
+      ) : (
+        'No rating code yet. Students can rate this event without one.'
+      )}{' '}
+      <button
+        type="button"
+        onClick={() => setDraft(code ?? '')}
+        className="text-brand-blue underline"
+      >
+        {code ? 'Change' : 'Set code'}
+      </button>
+    </>
   )
 }
 

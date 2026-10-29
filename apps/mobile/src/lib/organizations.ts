@@ -1,3 +1,4 @@
+import { fetchMyMemberOrgIds } from './applications';
 import { supabase } from './supabase';
 
 // Org logos and photos live in this public storage bucket (same as the web dashboard).
@@ -40,6 +41,29 @@ export async function fetchOrganizations({ recruitingOnly = false } = {}): Promi
     .eq('status', 'active');
   if (recruitingOnly) query = query.eq('recruitment_open', true);
   const { data, error } = await query.order('name');
+  if (error) throw error;
+
+  return data.map((org) => ({
+    id: org.id,
+    name: org.name,
+    description: org.description,
+    categories: org.categories ?? [],
+    logoUrl: orgMediaUrl(org.logo_path),
+    recruitmentOpen: org.recruitment_open ?? false,
+  }));
+}
+
+// The active organizations the student is a member of, A to Z.
+export async function fetchMyOrganizations(profileId: string): Promise<OrgListItem[]> {
+  const memberOrgIds = await fetchMyMemberOrgIds(profileId);
+  if (memberOrgIds.size === 0) return [];
+
+  const { data, error } = await supabase
+    .from('organizations')
+    .select('id, name, description, categories, logo_path, recruitment_open')
+    .eq('status', 'active')
+    .in('id', [...memberOrgIds])
+    .order('name');
   if (error) throw error;
 
   return data.map((org) => ({

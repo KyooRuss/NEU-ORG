@@ -141,15 +141,37 @@ export const FEEDBACK_CATEGORIES = [
 export type FeedbackCategory = (typeof FEEDBACK_CATEGORIES)[number]['key'];
 export type FeedbackRatings = Record<FeedbackCategory, number>;
 
-// Saves the student's ratings for an event that has ended. Throws an Error with
-// a message to show.
-export async function submitFeedback(eventId: string, ratings: FeedbackRatings) {
-  const { error } = await supabase.from('event_feedback').insert({ event_id: eventId, ...ratings });
+// Whether the student must enter the officers' rating code before rating.
+// Events requested before codes existed have none.
+export async function ratingCodeRequired(eventId: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('rating_code_required', { target_event: eventId });
+  if (error) throw error;
+  return data as boolean;
+}
+
+// True when the code is right. Case and spaces don't matter.
+export async function checkRatingCode(eventId: string, code: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('check_rating_code', { target_event: eventId, entered_code: code });
+  if (error) throw error;
+  return data as boolean;
+}
+
+// Saves the student's ratings for an event that has ended, with the code they
+// entered (empty when the event has none). The database checks the code again.
+// Throws an Error with a message to show.
+export async function submitFeedback(eventId: string, code: string, ratings: FeedbackRatings) {
+  const { error } = await supabase.rpc('submit_event_feedback', {
+    target_event: eventId,
+    entered_code: code,
+    ...ratings,
+  });
   if (!error) return;
   // 23505: they already rated this event.
   if (error.code === '23505') return;
-  // 42501: blocked by the database rules, i.e. the event hasn't ended yet.
+  // 42501: the event hasn't ended yet.
   if (error.code === '42501') throw new Error('You can rate this event once it has ended.');
+  // 22023: the code was changed after they entered it.
+  if (error.code === '22023') throw new Error('The rating code is incorrect. Close this and enter it again.');
   throw new Error("Your feedback couldn't be sent. Check your connection and try again.");
 }
 

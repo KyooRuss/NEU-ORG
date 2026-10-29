@@ -1,4 +1,33 @@
+import * as WebBrowser from 'expo-web-browser';
+
 import { supabase } from './supabase';
+
+// The printed application form students bring to their interview. Each
+// organization's officers upload their own on the web dashboard.
+export type ApplicationForm = { name: string; url: string };
+
+const FORM_BUCKET = 'org-forms';
+
+// Null when the organization hasn't uploaded one.
+export async function fetchApplicationForm(organizationId: string): Promise<ApplicationForm | null> {
+  const { data, error } = await supabase
+    .from('organizations')
+    .select('application_form_path, application_form_name')
+    .eq('id', organizationId)
+    .maybeSingle();
+  if (error) throw error;
+  const path = data?.application_form_path as string | null | undefined;
+  if (!path) return null;
+  return {
+    name: (data?.application_form_name as string | null) || 'Application form',
+    url: supabase.storage.from(FORM_BUCKET).getPublicUrl(path).data.publicUrl,
+  };
+}
+
+// Opens it in the in-app browser, where the student can save or print it.
+export async function openApplicationForm(form: ApplicationForm) {
+  await WebBrowser.openBrowserAsync(form.url);
+}
 
 // Where the student stands with an organization. Declined counts as "none",
 // since they can apply again.

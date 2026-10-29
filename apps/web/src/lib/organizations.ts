@@ -25,6 +25,9 @@ export type Organization = {
   // Paths inside the "org-media" storage bucket.
   logo_path: string | null
   photo_paths: string[]
+  // The membership application form students download, in the "org-forms" bucket.
+  application_form_path: string | null
+  application_form_name: string | null
   status: OrgStatus
   // Whether students can apply to join. Missing until the recruitment migration is in Supabase.
   recruitment_open?: boolean
@@ -57,6 +60,9 @@ export type OrganizationFiles = {
   logo: File | null
   keptPhotoPaths: string[]
   newPhotos: File[]
+  // A new application form, or removeApplicationForm to drop the saved one.
+  applicationForm: File | null
+  removeApplicationForm: boolean
 }
 
 export const PRESET_CATEGORIES = ['Academic', 'Sports']
@@ -92,11 +98,25 @@ export const LOGO_MAX_BYTES = 2 * 1024 * 1024
 export const PHOTO_MAX_BYTES = 5 * 1024 * 1024
 export const MAX_PHOTOS = 10
 
+const FORM_BUCKET = 'org-forms'
+export const FORM_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+]
+export const FORM_MAX_BYTES = 10 * 1024 * 1024
+
 export function mediaUrl(path: string | null): string | null {
   if (!path) return null
   // Sample-data uploads are kept as temporary browser URLs.
   if (path.startsWith('blob:')) return path
   return supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl
+}
+
+export function formUrl(path: string | null): string | null {
+  if (!path) return null
+  if (path.startsWith('blob:')) return path
+  return supabase.storage.from(FORM_BUCKET).getPublicUrl(path).data.publicUrl
 }
 
 // ---------------------------------------------------------------------------
@@ -142,6 +162,8 @@ function sampleOrganization(
     testimonials: [],
     logo_path: null,
     photo_paths: [],
+    application_form_path: null,
+    application_form_name: null,
     status: 'active',
     archived_at: null,
     created_at: now,
@@ -239,6 +261,8 @@ export async function createOrganization(input: OrganizationInput, files: Organi
         id,
         logo_path: files.logo ? URL.createObjectURL(files.logo) : null,
         photo_paths: files.newPhotos.map((file) => URL.createObjectURL(file)),
+        application_form_path: files.applicationForm ? URL.createObjectURL(files.applicationForm) : null,
+        application_form_name: files.applicationForm?.name ?? null,
       }),
     )
     return
@@ -250,11 +274,14 @@ export async function createOrganization(input: OrganizationInput, files: Organi
     ...values,
     logo_path: uploaded.logoPath,
     photo_paths: uploaded.photoPaths,
+    application_form_path: uploaded.formPath,
+    application_form_name: uploaded.formName,
     status: 'active',
   })
 
   if (error) {
     await removeFiles(uploaded.newPaths)
+    await removeForm(uploaded.newFormPath)
     throw friendlyError(error)
   }
 
@@ -336,26 +363,47 @@ async function saveChanges(
     Object.assign(findSample(org.id), values, {
       logo_path: files.logo ? URL.createObjectURL(files.logo) : org.logo_path,
       photo_paths: [...files.keptPhotoPaths, ...files.newPhotos.map((file) => URL.createObjectURL(file))],
+      ...sampleForm(files),
       updated_at: new Date().toISOString(),
     })
     return
   }
 
-  const uploaded = await uploadAll(org.id, files, org.logo_path)
+  const uploaded = await uploadAll(org.id, files, org)
   const { data, error } = await supabase
     .from('organizations')
-    .update({ ...values, logo_path: uploaded.logoPath, photo_paths: uploaded.photoPaths })
+    .update({
+      ...values,
+      logo_path: uploaded.logoPath,
+      photo_paths: uploaded.photoPaths,
+      application_form_path: uploaded.formPath,
+      application_form_name: uploaded.formName,
+    })
     .eq('id', org.id)
     .select('id')
 
   if (error || data.length === 0) {
     await removeFiles(uploaded.newPaths)
+    await removeForm(uploaded.newFormPath)
     throw error ? friendlyError(error) : notFound()
   }
 
   // Only drop replaced or removed files once the new record is saved.
   const stillUsed = new Set([uploaded.logoPath, ...uploaded.photoPaths])
   await removeFiles([org.logo_path, ...org.photo_paths].filter((path) => path && !stillUsed.has(path)))
+  if (org.application_form_path !== uploaded.formPath) await removeForm(org.application_form_path)
+}
+
+// The sample-data version of the form change: replaced, removed or left alone.
+function sampleForm(files: OrganizationFiles) {
+  if (files.applicationForm) {
+    return {
+      application_form_path: URL.createObjectURL(files.applicationForm),
+      application_form_name: files.applicationForm.name,
+    }
+  }
+  if (files.removeApplicationForm) return { application_form_path: null, application_form_name: null }
+  return {}
 }
 
 export async function archiveOrganization(id: string) {
@@ -381,6 +429,7 @@ export async function deleteOrganizationForever(org: Organization) {
   if (error) throw friendlyError(error)
   if (data.length === 0) throw notFound()
   await removeFiles([org.logo_path, ...org.photo_paths])
+  await removeForm(org.application_form_path)
 }
 
 async function setStatus(id: string, changes: { status: OrgStatus; archived_at: string | null }) {
@@ -402,20 +451,46 @@ async function setStatus(id: string, changes: { status: OrgStatus; archived_at: 
 // Storage
 // ---------------------------------------------------------------------------
 
-async function uploadAll(orgId: string, files: OrganizationFiles, currentLogo: string | null = null) {
+// Pass the organization being edited so its saved logo and form carry over.
+async function uploadAll(orgId: string, files: OrganizationFiles, current?: Organization) {
   const newPaths: string[] = []
+  let newFormPath: string | null = null
   try {
-    const logoPath = files.logo ? await uploadFile(orgId, 'logo', files.logo) : currentLogo
+    const logoPath = files.logo ? await uploadFile(orgId, 'logo', files.logo) : (current?.logo_path ?? null)
     if (files.logo && logoPath) newPaths.push(logoPath)
     for (const photo of files.newPhotos) {
       newPaths.push(await uploadFile(orgId, 'photos', photo))
     }
     const photoPaths = [...files.keptPhotoPaths, ...newPaths.filter((path) => path !== logoPath)]
-    return { logoPath, photoPaths, newPaths }
+
+    // A new form replaces the saved one; otherwise keep it unless it was removed.
+    let formPath = files.removeApplicationForm ? null : (current?.application_form_path ?? null)
+    let formName = files.removeApplicationForm ? null : (current?.application_form_name ?? null)
+    if (files.applicationForm) {
+      newFormPath = await uploadForm(orgId, files.applicationForm)
+      formPath = newFormPath
+      formName = files.applicationForm.name
+    }
+    return { logoPath, photoPaths, newPaths, formPath, formName, newFormPath }
   } catch (error) {
     await removeFiles(newPaths)
+    await removeForm(newFormPath)
     throw error
   }
+}
+
+async function uploadForm(orgId: string, file: File): Promise<string> {
+  const extension = file.name.split('.').pop()?.toLowerCase() ?? 'pdf'
+  const path = `${orgId}/${crypto.randomUUID()}.${extension}`
+  const { error } = await supabase.storage.from(FORM_BUCKET).upload(path, file, { contentType: file.type })
+
+  if (error) throw new Error(`Could not upload “${file.name}”: ${error.message}`)
+  return path
+}
+
+async function removeForm(path: string | null) {
+  if (!path || path.startsWith('blob:')) return
+  await supabase.storage.from(FORM_BUCKET).remove([path])
 }
 
 async function uploadFile(orgId: string, folder: 'logo' | 'photos', file: File): Promise<string> {

@@ -1,6 +1,7 @@
 import { ArrowLeft, Check, ImageIcon, Plus, X } from 'lucide-react'
 import { type FormEvent, type ReactNode, useRef, useState } from 'react'
 
+import ApplicationFormField from '../components/ApplicationFormField'
 import { primaryButton, secondaryButton } from '../components/Modal'
 import useOrganizationForm from '../components/useOrganizationForm'
 import {
@@ -226,6 +227,10 @@ export default function AddOrganizationPage({
                 ))}
               </select>
             </label>
+          </Card>
+
+          <Card>
+            <ApplicationFormField form={form} />
           </Card>
 
           <Card>

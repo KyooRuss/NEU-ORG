@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,7 +13,15 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Pressable from '@/components/pressable';
-import { applyToOrganization, fetchApplicantInfo, normalizeLink, type ApplicantInfo } from '@/lib/applications';
+import {
+  applyToOrganization,
+  fetchApplicantInfo,
+  fetchApplicationForm,
+  normalizeLink,
+  openApplicationForm,
+  type ApplicantInfo,
+  type ApplicationForm,
+} from '@/lib/applications';
 
 type Props = {
   organizationId: string;
@@ -35,18 +44,39 @@ export default function ApplyModal({ organizationId, organizationName, profileId
   const [link, setLink] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  // The organization's application form; stays null (no row) if it has none.
+  const [form, setForm] = useState<ApplicationForm | null>(null);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
     fetchApplicantInfo(profileId)
       .then((loaded) => active && setInfo(loaded))
       .catch(() => active && setInfoError(true));
+    // The form is optional, so if it can't load the row just stays hidden.
+    fetchApplicationForm(organizationId)
+      .then((loaded) => active && setForm(loaded))
+      .catch(() => {});
     return () => {
       active = false;
     };
-  }, [profileId]);
+  }, [profileId, organizationId]);
 
   const needsProgram = info !== null && !info.program;
+
+  async function handleDownload() {
+    if (!form) return;
+    setDownloadError(null);
+    setDownloading(true);
+    try {
+      await openApplicationForm(form);
+    } catch (err) {
+      setDownloadError(err instanceof Error ? err.message : 'The form couldn’t download. Try again.');
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   async function handleSubmit() {
     if (!info) return;
@@ -107,6 +137,34 @@ export default function ApplyModal({ organizationId, organizationName, profileId
                     editable={!sending}
                     style={styles.input}
                   />
+                </>
+              )}
+
+              {form && (
+                <>
+                  <Text style={styles.label}>Application Form</Text>
+                  <Pressable
+                    onPress={handleDownload}
+                    disabled={downloading}
+                    style={({ pressed }) => [styles.formFile, pressed && styles.pressed]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Download the application form, ${form.name}`}>
+                    <View style={styles.formIcon}>
+                      <Ionicons name="document-text-outline" size={20} color="#DC2626" />
+                    </View>
+                    <View style={styles.formText}>
+                      <Text style={styles.formName} numberOfLines={1}>
+                        {form.name}
+                      </Text>
+                      <Text style={styles.formHint}>Fill it out and bring it to your interview.</Text>
+                    </View>
+                    {downloading ? (
+                      <ActivityIndicator color={NAVY} />
+                    ) : (
+                      <Ionicons name="download-outline" size={20} color={NAVY} />
+                    )}
+                  </Pressable>
+                  {downloadError && <Text style={styles.error}>{downloadError}</Text>}
                 </>
               )}
 
@@ -217,6 +275,29 @@ const styles = StyleSheet.create({
 
   label: { marginTop: 18, marginBottom: 8, fontFamily: 'Poppins_600SemiBold', fontSize: 13, color: INK },
   required: { color: '#DC2626' },
+  // The downloadable form, as a file row with a download icon.
+  formFile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E4E4E7',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  formIcon: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+    backgroundColor: '#FEE2E2',
+  },
+  formText: { flex: 1 },
+  formName: { fontFamily: 'Poppins_600SemiBold', fontSize: 13, color: INK },
+  formHint: { fontFamily: 'Poppins_400Regular', fontSize: 11, color: '#8A8FA3' },
   input: {
     height: 46,
     borderRadius: 12,

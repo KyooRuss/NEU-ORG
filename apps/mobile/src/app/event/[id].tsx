@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FeedbackModal from '@/components/feedback-modal';
 import PhotoViewerModal from '@/components/photo-viewer-modal';
 import Pressable from '@/components/pressable';
+import RatingCodeModal from '@/components/rating-code-modal';
 import { BRAND_GRADIENT } from '@/constants/brand';
 import {
   audienceLabel,
@@ -18,6 +19,7 @@ import {
   formatEventDate,
   formatEventTimeRange,
   hasEnded,
+  ratingCodeRequired,
   type EventItem,
 } from '@/lib/events';
 import { supabase } from '@/lib/supabase';
@@ -34,7 +36,10 @@ export default function EventScreen() {
   const [posterOpen, setPosterOpen] = useState(false);
   // Whether the student has rated this event; null until it loads.
   const [rated, setRated] = useState<boolean | null>(null);
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  // Rating goes: check whether the event has a code, ask for it, then the stars.
+  // { code } is the rating sheet, with the code entered ('' when there's none).
+  const [rateStep, setRateStep] = useState<null | 'checking' | 'code' | { code: string }>(null);
+  const [rateError, setRateError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -62,6 +67,17 @@ export default function EventScreen() {
   function goBack() {
     if (router.canGoBack()) router.back();
     else router.replace('/events');
+  }
+
+  async function startRating() {
+    setRateStep('checking');
+    setRateError(null);
+    try {
+      setRateStep((await ratingCodeRequired(id)) ? 'code' : { code: '' });
+    } catch {
+      setRateStep(null);
+      setRateError("Rating couldn't start. Check your connection and try again.");
+    }
   }
 
   const header = (
@@ -184,25 +200,45 @@ export default function EventScreen() {
               <Text style={styles.thanksText}>Thanks for your feedback!</Text>
             </View>
           ) : (
-            <Pressable
-              onPress={() => setFeedbackOpen(true)}
-              style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}
-              accessibilityRole="button">
-              <Ionicons name="star-outline" size={18} color="#FFFFFF" />
-              <Text style={styles.primaryText}>Rate this Event</Text>
-            </Pressable>
+            <>
+              <Pressable
+                onPress={startRating}
+                disabled={rateStep === 'checking'}
+                style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}
+                accessibilityRole="button">
+                {rateStep === 'checking' ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Ionicons name="star-outline" size={18} color="#FFFFFF" />
+                    <Text style={styles.primaryText}>Rate this Event</Text>
+                  </>
+                )}
+              </Pressable>
+              {rateError && <Text style={styles.rateError}>{rateError}</Text>}
+            </>
           ))}
       </ScrollView>
 
-      {feedbackOpen && (
+      {rateStep === 'code' && (
+        <RatingCodeModal
+          eventId={event.id}
+          eventTitle={event.title}
+          onAccepted={(code) => setRateStep({ code })}
+          onClose={() => setRateStep(null)}
+        />
+      )}
+
+      {typeof rateStep === 'object' && rateStep && (
         <FeedbackModal
           eventId={event.id}
           eventTitle={event.title}
+          code={rateStep.code}
           onSent={() => {
             setRated(true);
-            setFeedbackOpen(false);
+            setRateStep(null);
           }}
-          onClose={() => setFeedbackOpen(false)}
+          onClose={() => setRateStep(null)}
         />
       )}
 
@@ -235,7 +271,7 @@ const styles = StyleSheet.create({
   header: { paddingBottom: 16 },
   headerRow: { flexDirection: 'row', alignItems: 'center' },
   back: { marginLeft: -6, padding: 2 },
-  headerTitle: { marginLeft: 6, fontFamily: 'Poppins_600SemiBold', fontSize: 18, color: '#FFFFFF' },
+  headerTitle: { marginLeft: 6, fontFamily: 'Poppins_600SemiBold', fontSize: 16, color: '#FFFFFF' },
 
   body: { paddingTop: 16, gap: 14 },
   loading: { marginVertical: 24 },
@@ -304,6 +340,14 @@ const styles = StyleSheet.create({
   cardTitle: { marginBottom: 8, fontFamily: 'Poppins_600SemiBold', fontSize: 16, color: INK },
   paragraph: { fontFamily: 'Poppins_400Regular', fontSize: 13, lineHeight: 21, color: MUTED },
 
+  rateError: {
+    marginTop: 8,
+    textAlign: 'center',
+    fontFamily: 'Poppins_400Regular',
+    fontSize: 12,
+    lineHeight: 17,
+    color: '#DC2626',
+  },
   primaryButton: {
     height: 50,
     flexDirection: 'row',

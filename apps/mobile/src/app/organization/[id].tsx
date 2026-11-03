@@ -66,7 +66,7 @@ export default function OrganizationScreen() {
     return (
       <View style={styles.screen}>
         <StatusBar style="light" />
-        <LinearGradient {...BRAND_GRADIENT} style={[styles.header, { paddingTop: insets.top + 12 }]}>
+        <LinearGradient {...BRAND_GRADIENT} style={[styles.header, { paddingTop: insets.top + 32 }]}>
           <View style={styles.column}>{backButton}</View>
         </LinearGradient>
         <View style={[styles.column, styles.body]}>
@@ -96,7 +96,8 @@ export default function OrganizationScreen() {
     <View style={styles.screen}>
       <StatusBar style="light" />
       <ScrollView contentContainerStyle={styles.scroll}>
-        <LinearGradient {...BRAND_GRADIENT} style={[styles.header, { paddingTop: insets.top + 12 }]}>
+        {/* The back arrow sits as low as on Organizations and Recruitment. */}
+        <LinearGradient {...BRAND_GRADIENT} style={[styles.header, { paddingTop: insets.top + 32 }]}>
           <View style={styles.column}>
             {backButton}
             <View style={styles.hero}>
@@ -295,7 +296,7 @@ const styles = StyleSheet.create({
 
   header: { paddingBottom: 24 },
   back: { alignSelf: 'flex-start', marginLeft: -6, padding: 2 },
-  hero: { marginTop: 8, flexDirection: 'row', alignItems: 'center' },
+  hero: { marginTop: 28, flexDirection: 'row', alignItems: 'center' },
   logo: { width: 76, height: 76, borderRadius: 38, borderWidth: 3, borderColor: '#FFFFFF' },
   heroText: { flex: 1, marginLeft: 16 },
   name: { fontFamily: 'Poppins_600SemiBold', fontSize: 20, lineHeight: 28, color: '#FFFFFF' },

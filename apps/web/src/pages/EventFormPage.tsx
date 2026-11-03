@@ -9,8 +9,13 @@ import {
   type EventAudience,
   type EventComment,
   fetchEventComments,
+  fetchRatingCode,
+  isValidRatingCode,
+  normalizeRatingCode,
   type OrgEvent,
   posterUrl,
+  RATING_CODE_HINT,
+  RATING_CODE_LENGTH,
   resubmitEvent,
 } from '../lib/events'
 import { COLLEGES, IMAGE_TYPES, type Organization, PHOTO_MAX_BYTES } from '../lib/organizations'
@@ -54,6 +59,8 @@ export default function EventFormPage({
   const [audience, setAudience] = useState<EventAudience>(event?.audience ?? 'everyone')
   const [colleges, setColleges] = useState<string[]>(event?.audience_colleges ?? [])
   const [registrationUrl, setRegistrationUrl] = useState(event?.registration_url ?? '')
+  // The officer types it. A request being edited loads its own below.
+  const [ratingCode, setRatingCode] = useState('')
   // A newly picked poster. While it's null, a request being edited keeps its current one.
   const [poster, setPoster] = useState<File | null>(null)
   const [posterPreview, setPosterPreview] = useState<string | null>(posterUrl(event?.poster_path ?? null))
@@ -73,6 +80,14 @@ export default function EventFormPage({
       })
       .catch((caught: Error) => {
         if (!cancelled) setCommentsError(caught.message)
+      })
+    // Requests from before rating codes have none: the officer fills one in.
+    fetchRatingCode(eventId)
+      .then((loaded) => {
+        if (!cancelled && loaded) setRatingCode(loaded)
+      })
+      .catch(() => {
+        // Left empty; the officer types a code and saving it replaces the old one.
       })
     return () => {
       cancelled = true
@@ -120,6 +135,8 @@ export default function EventFormPage({
     if (registrationUrl.trim() && !isWebLink(registrationUrl.trim())) {
       return 'The registration link must be a full link that starts with https://'
     }
+    if (!ratingCode) return 'Set a rating code for the event.'
+    if (!isValidRatingCode(ratingCode)) return 'The rating code must be exactly 6 letters or numbers.'
     return null
   }
 
@@ -139,6 +156,7 @@ export default function EventFormPage({
       audience,
       audience_colleges: colleges,
       registration_url: registrationUrl,
+      rating_code: ratingCode,
     }
     try {
       if (event) await resubmitEvent(event, input, poster)
@@ -332,6 +350,28 @@ export default function EventFormPage({
                 className={`${fieldClass} mt-3`}
               />
             </label>
+          </Card>
+
+          <Card>
+            <label className="block" htmlFor="rating-code">
+              <span className="font-semibold text-brand-navy">
+                Rating Code <Required />
+              </span>
+              <span className="mt-1 block text-xs text-zinc-500">
+                Announce this code at the event. Students enter it in the app before they can rate
+                the event, so only those who attended can. {RATING_CODE_HINT}.
+              </span>
+            </label>
+            <input
+              id="rating-code"
+              value={ratingCode}
+              onChange={(change) => setRatingCode(normalizeRatingCode(change.target.value))}
+              maxLength={RATING_CODE_LENGTH}
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="e.g. TECH26"
+              className={`${fieldClass} mt-3 max-w-48 font-mono tracking-widest`}
+            />
           </Card>
 
           <div className="flex flex-wrap items-center justify-end gap-3">

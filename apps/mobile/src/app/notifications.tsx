@@ -115,6 +115,11 @@ export default function NotificationsScreen() {
     if (href) router.push(href);
   }
 
+  function goBack() {
+    if (router.canGoBack()) router.back();
+    else router.replace('/home');
+  }
+
   function emptyText() {
     if (loadError) return "Notifications couldn't load. Check your connection and pull down to try again.";
     return 'No notifications yet. Announcements and new events from organizations will show up here.';
@@ -123,8 +128,11 @@ export default function NotificationsScreen() {
   return (
     <View style={styles.screen}>
       <StatusBar style="light" />
-      <LinearGradient {...BRAND_GRADIENT} style={[styles.header, { paddingTop: insets.top + 16 }]}>
+      <LinearGradient {...BRAND_GRADIENT} style={[styles.header, { paddingTop: insets.top + 32 }]}>
         <View style={[styles.column, styles.headerRow]}>
+          <Pressable onPress={goBack} hitSlop={10} style={styles.back} accessibilityRole="button" accessibilityLabel="Back">
+            <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+          </Pressable>
           <View style={styles.headerText}>
             <Text style={styles.title}>Notifications</Text>
             {items !== null && (
@@ -237,11 +245,13 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.7 },
   disabled: { opacity: 0.5 },
 
-  header: { paddingBottom: 20 },
+  // Same look as the Organizations header: rounded bottom corners and a back button.
+  header: { paddingBottom: 20, borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
   headerRow: { flexDirection: 'row', alignItems: 'center' },
-  headerText: { flex: 1 },
-  title: { fontFamily: 'Poppins_600SemiBold', fontSize: 22, color: '#FFFFFF' },
-  subtitle: { fontFamily: 'Poppins_400Regular', fontSize: 12, color: 'rgba(255, 255, 255, 0.85)' },
+  back: { marginLeft: -6, padding: 2 },
+  headerText: { flex: 1, marginLeft: 6 },
+  title: { fontFamily: 'Poppins_500Medium', fontSize: 16, color: '#FFFFFF' },
+  subtitle: { fontFamily: 'Poppins_400Regular', fontSize: 11, color: 'rgba(255, 255, 255, 0.85)' },
   markAll: {
     borderRadius: 10,
     backgroundColor: 'rgba(255, 255, 255, 0.22)',

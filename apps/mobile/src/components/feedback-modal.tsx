@@ -9,6 +9,8 @@ import { FEEDBACK_CATEGORIES, submitFeedback, type FeedbackCategory, type Feedba
 type Props = {
   eventId: string;
   eventTitle: string;
+  // The rating code the student entered, or empty when the event has none.
+  code: string;
   onSent: () => void;
   onClose: () => void;
 };
@@ -16,7 +18,7 @@ type Props = {
 // Rate an event that has ended, 1 to 5 stars in six categories, as a sheet
 // from the bottom of the screen. Render it only while it's open.
 // Styled with StyleSheet: NativeWind classes don't reliably reach inside a Modal on web.
-export default function FeedbackModal({ eventId, eventTitle, onSent, onClose }: Props) {
+export default function FeedbackModal({ eventId, eventTitle, code, onSent, onClose }: Props) {
   const insets = useSafeAreaInsets();
   const [ratings, setRatings] = useState<Partial<FeedbackRatings>>({});
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +35,7 @@ export default function FeedbackModal({ eventId, eventTitle, onSent, onClose }: 
     if (!complete) return setError('Rate all six to send your feedback.');
     setSending(true);
     try {
-      await submitFeedback(eventId, ratings as FeedbackRatings);
+      await submitFeedback(eventId, code, ratings as FeedbackRatings);
       onSent();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Try again.');

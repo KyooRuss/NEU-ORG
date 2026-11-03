@@ -9,6 +9,7 @@ import {
   type Organization,
   PRESET_CATEGORIES,
 } from '../lib/organizations'
+import ApplicationFormField from './ApplicationFormField'
 import Modal, { primaryButton, secondaryButton } from './Modal'
 import useOrganizationForm from './useOrganizationForm'
 
@@ -302,6 +303,8 @@ export default function OrganizationFormModal({ organization: org, profileOnly, 
 
         {/* Right column: why students should join. */}
         <div className="grid content-start gap-6 lg:border-l lg:border-zinc-200 lg:pl-10">
+          <ApplicationFormField form={form} />
+
           <Section title="Reasons to Join">
             <div className="grid gap-2">
               {values.reasons_to_join.map((reason, index) => (

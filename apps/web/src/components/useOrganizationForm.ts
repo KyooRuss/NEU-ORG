@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 
 import {
   createOrganization,
+  FORM_MAX_BYTES,
+  FORM_TYPES,
+  formUrl,
   IMAGE_TYPES,
   LOGO_MAX_BYTES,
   MAX_CATEGORIES,
@@ -45,6 +48,9 @@ export default function useOrganizationForm(org?: Organization, { profileOnly = 
   const [photos, setPhotos] = useState<PhotoItem[]>(
     (org?.photo_paths ?? []).map((path) => ({ key: path, path, url: mediaUrl(path) ?? '' })),
   )
+  // A newly picked application form, and whether the saved one was removed.
+  const [applicationForm, setApplicationForm] = useState<File | null>(null)
+  const [formRemoved, setFormRemoved] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -123,6 +129,27 @@ export default function useOrganizationForm(org?: Organization, { profileOnly = 
     setPhotos((current) => current.filter((photo) => photo.key !== item.key))
   }
 
+  // --- Application form -----------------------------------------------------
+
+  // What the field shows: the new file, else the saved one unless it was removed.
+  const formName = applicationForm?.name ?? (formRemoved ? null : (org?.application_form_name ?? null))
+  const formLink = applicationForm || formRemoved ? null : formUrl(org?.application_form_path ?? null)
+
+  function handleApplicationForm(file: File | undefined) {
+    if (!file) return
+    let problem: string | null = null
+    if (!FORM_TYPES.includes(file.type)) problem = `“${file.name}” must be a PDF or Word document.`
+    else if (file.size > FORM_MAX_BYTES) problem = `“${file.name}” is larger than ${FORM_MAX_BYTES / 1024 / 1024} MB.`
+    setError(problem)
+    if (problem) return
+    setApplicationForm(file)
+  }
+
+  function removeApplicationForm() {
+    setApplicationForm(null)
+    setFormRemoved(true)
+  }
+
   // --- Lists ----------------------------------------------------------------
 
   function updateReason(index: number, value: string) {
@@ -163,6 +190,8 @@ export default function useOrganizationForm(org?: Organization, { profileOnly = 
       logo,
       keptPhotoPaths: photos.flatMap((photo) => (photo.path ? [photo.path] : [])),
       newPhotos: photos.flatMap((photo) => (photo.file ? [photo.file] : [])),
+      applicationForm,
+      removeApplicationForm: formRemoved,
     }
     try {
       if (!org) await createOrganization(values, files)
@@ -189,6 +218,10 @@ export default function useOrganizationForm(org?: Organization, { profileOnly = 
     photos,
     handlePhotos,
     removePhoto,
+    formName,
+    formLink,
+    handleApplicationForm,
+    removeApplicationForm,
     updateReason,
     updateTestimonial,
     saving,

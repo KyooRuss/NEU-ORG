@@ -1,6 +1,7 @@
 import { Lock, Mail } from 'lucide-react'
 import { useState } from 'react'
 
+import Modal, { primaryButton } from '../components/Modal'
 import { supabase } from '../lib/supabase'
 
 type LoginPageProps = {
@@ -14,6 +15,7 @@ export default function LoginPage({ notice, onDismissNotice }: LoginPageProps) {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showForgotPassword, setShowForgotPassword] = useState(false)
 
   // On success, App notices the new session and shows the dashboard.
   async function handleLogin() {
@@ -91,11 +93,15 @@ export default function LoginPage({ notice, onDismissNotice }: LoginPageProps) {
             </label>
           </div>
 
-          {/* Passwords are reset in the mobile app; the account is the same on both. */}
-          <p className="mt-3 text-xs leading-relaxed text-zinc-600">
-            Forgot your password, or signed up with Google? Open the NEU ORG mobile app, type your email, and tap{' '}
-            <strong className="font-semibold">Forgot password?</strong>. Then log in here with your new password.
-          </p>
+          <div className="mt-2 flex justify-end">
+            <button
+              type="button"
+              onClick={() => setShowForgotPassword(true)}
+              className="text-xs text-brand-blue hover:underline"
+            >
+              Forgot password?
+            </button>
+          </div>
 
           {message && (
             <p role="alert" className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -112,6 +118,37 @@ export default function LoginPage({ notice, onDismissNotice }: LoginPageProps) {
           </button>
         </form>
       </div>
+
+      {showForgotPassword && <ForgotPasswordModal onClose={() => setShowForgotPassword(false)} />}
     </main>
+  )
+}
+
+// Passwords are reset in the mobile app; the account is the same on both.
+function ForgotPasswordModal({ onClose }: { onClose: () => void }) {
+  return (
+    <Modal
+      title="Forgot your password?"
+      size="sm"
+      onClose={onClose}
+      footer={
+        <button type="button" onClick={onClose} className={primaryButton}>
+          Got it
+        </button>
+      }
+    >
+      <p className="text-sm text-zinc-600">
+        Reset it in the NEU ORG mobile app. This also works if you signed up with Google and don’t have a password yet.
+      </p>
+      <ol className="mt-4 list-decimal space-y-2 pl-5 text-sm text-zinc-700">
+        <li>Open the mobile app and type your email on the login screen.</li>
+        <li>
+          Tap <strong className="font-semibold">Forgot password?</strong>
+        </li>
+        <li>Enter the 6-digit code sent to your email, then choose a new password with at least 8 characters.</li>
+        <li>Come back here and log in with your new password.</li>
+      </ol>
+      <p className="mt-4 text-xs text-zinc-500">Admins: please contact your system administrator.</p>
+    </Modal>
   )
 } 

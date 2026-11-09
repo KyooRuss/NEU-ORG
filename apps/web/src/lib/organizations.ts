@@ -68,21 +68,27 @@ export type OrganizationFiles = {
 export const PRESET_CATEGORIES = ['Academic', 'Sports']
 export const MAX_CATEGORIES = 3
 
-// Edit this list to match the colleges NEU actually has.
+// The colleges NEU offers. Keep in sync with COLLEGES in apps/mobile/src/lib/assessment.ts.
+// These names are saved on records, so renaming one also needs a migration.
 export const COLLEGES = [
   'College of Accountancy',
+  'College of Agriculture',
   'College of Arts and Sciences',
   'College of Business Administration',
   'College of Communication',
-  'College of Computer Studies',
   'College of Criminology',
   'College of Education',
-  'College of Engineering and Architecture',
+  'College of Engineering & Architecture',
+  'College of Informatics & Computing Studies',
+  'College of Law',
   'College of Medical Technology',
+  'College of Medicine',
+  'College of Midwifery',
   'College of Music',
   'College of Nursing',
   'College of Physical Therapy',
   'College of Respiratory Therapy',
+  'School of International Relations',
 ]
 
 export const ALL_PROGRAMS = 'All Programs'
@@ -177,14 +183,14 @@ function sampleOrganization(
 function createSampleStore(): Organization[] {
   return [
     sampleOrganization('Computer Studies Society', ['Academic', 'Special Interest'], 128, 6, {
-      department: 'College of Computer Studies',
+      department: 'College of Informatics & Computing Studies',
       description: 'A community for students who love building software, hardware and ideas.',
       vision: 'A campus where every student can build technology that helps people.',
       mission: 'To grow skilled, ethical and collaborative computing professionals.',
-      room_number: 'Room 402, CCS Building',
+      room_number: 'Room 402, CICS Building',
       telegram_contact: '@css_neu',
       facebook_contact: 'CSS NEU Main',
-      program_eligibility: 'College of Computer Studies',
+      program_eligibility: 'College of Informatics & Computing Studies',
       reasons_to_join: ['Hands-on workshops every month', 'Hackathons and coding contests'],
       testimonials: [{ author: 'Sample Alumnus', text: 'CSS taught me teamwork outside the classroom.' }],
     }),
@@ -196,7 +202,7 @@ function createSampleStore(): Organization[] {
       department: 'College of Nursing',
     }),
     sampleOrganization('Engineering Council', ['Academic'], 158, 7, {
-      department: 'College of Engineering and Architecture',
+      department: 'College of Engineering & Architecture',
     }),
     sampleOrganization('NEU Music Club', ['Cultural', 'Special Interest'], 64, 4),
   ]

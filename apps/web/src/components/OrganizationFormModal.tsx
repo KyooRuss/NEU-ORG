@@ -237,7 +237,7 @@ export default function OrganizationFormModal({ organization: org, profileOnly, 
               <input
                 value={values.room_number}
                 onChange={(event) => set('room_number', event.target.value)}
-                placeholder="e.g. Room 402, CCS Building"
+                placeholder="e.g. Room 402, CICS Building"
                 className={fieldClass}
               />
             </label>

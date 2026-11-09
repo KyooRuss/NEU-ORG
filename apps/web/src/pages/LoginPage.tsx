@@ -91,12 +91,11 @@ export default function LoginPage({ notice, onDismissNotice }: LoginPageProps) {
             </label>
           </div>
 
-          <div className="mt-2 flex justify-end">
-            {/* TODO: password reset flow. */}
-            <button type="button" className="text-xs text-brand-blue hover:underline">
-              Forgot password?
-            </button>
-          </div>
+          {/* Passwords are reset in the mobile app; the account is the same on both. */}
+          <p className="mt-3 text-xs leading-relaxed text-zinc-600">
+            Forgot your password, or signed up with Google? Open the NEU ORG mobile app, type your email, and tap{' '}
+            <strong className="font-semibold">Forgot password?</strong>. Then log in here with your new password.
+          </p>
 
           {message && (
             <p role="alert" className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">

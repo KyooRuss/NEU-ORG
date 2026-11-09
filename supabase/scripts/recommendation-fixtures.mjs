@@ -12,13 +12,13 @@ export const organizations = [
   {
     name: 'Code Innovators Guild',
     categories: ['Academic', 'Technology'],
-    department: 'College of Computer Studies',
+    department: 'College of Informatics & Computing Studies',
     description: 'A community of student developers building apps and websites, joining hackathons and sharing what they learn in coding sessions.',
   },
   {
     name: 'Cybersecurity Alliance',
     categories: ['Academic'],
-    department: 'College of Computer Studies',
+    department: 'College of Informatics & Computing Studies',
     description: 'Students learning to protect systems, networks and data through ethical hacking workshops and capture-the-flag contests.',
   },
   {
@@ -90,7 +90,7 @@ export const students = [
     interests: ['Gaming'],
     skills: [],
     activities: ['Competition', 'E-sports'],
-    department: 'College of Computer Studies',
+    department: 'College of Informatics & Computing Studies',
     expect: 'NEU Esports Club',
   },
   {
@@ -98,7 +98,7 @@ export const students = [
     interests: ['Programming', 'Artificial Intelligence'],
     skills: ['Programming'],
     activities: ['Workshop'],
-    department: 'College of Computer Studies',
+    department: 'College of Informatics & Computing Studies',
     expect: 'Code Innovators Guild',
   },
   {
@@ -106,7 +106,7 @@ export const students = [
     interests: ['Cyber Security'],
     skills: ['Cybersecurity'],
     activities: ['Competition'],
-    department: 'College of Computer Studies',
+    department: 'College of Informatics & Computing Studies',
     expect: 'Cybersecurity Alliance',
   },
   {

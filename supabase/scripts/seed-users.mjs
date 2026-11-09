@@ -12,13 +12,13 @@ const organizations = [
   {
     name: 'Cybersecurity Alliance',
     categories: ['Academic'],
-    department: 'College of Computer Studies',
+    department: 'College of Informatics & Computing Studies',
     description: 'Students learning to protect systems, networks and data through workshops and capture-the-flag events.',
   },
   {
     name: 'Code Innovators Guild',
     categories: ['Academic'],
-    department: 'College of Computer Studies',
+    department: 'College of Informatics & Computing Studies',
     description: 'A community of student developers building projects, joining hackathons and sharing what they learn.',
   },
   {
@@ -67,7 +67,7 @@ const accounts = [
     fullName: 'Dr. Ramon Castillo',
     role: 'professor',
     professorNo: 'P0001',
-    department: 'College of Computer Studies',
+    department: 'College of Informatics & Computing Studies',
   },
   {
     email: 'professor2@neuorg.test',

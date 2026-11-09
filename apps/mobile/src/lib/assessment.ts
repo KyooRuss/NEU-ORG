@@ -7,18 +7,23 @@ export const MAX_LABEL_LENGTH = 40;
 // use the same list, which is how "open to your college" recommendations work.
 export const COLLEGES = [
   'College of Accountancy',
+  'College of Agriculture',
   'College of Arts and Sciences',
   'College of Business Administration',
   'College of Communication',
-  'College of Computer Studies',
   'College of Criminology',
   'College of Education',
-  'College of Engineering and Architecture',
+  'College of Engineering & Architecture',
+  'College of Informatics & Computing Studies',
+  'College of Law',
   'College of Medical Technology',
+  'College of Medicine',
+  'College of Midwifery',
   'College of Music',
   'College of Nursing',
   'College of Physical Therapy',
   'College of Respiratory Therapy',
+  'School of International Relations',
 ];
 
 export const YEAR_LEVELS = [

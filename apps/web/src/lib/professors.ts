@@ -41,9 +41,9 @@ function createSampleStore(): Professor[] {
   })
 
   return [
-    sample('Dr. Ramon Castillo', 'College of Computer Studies'),
+    sample('Dr. Ramon Castillo', 'College of Informatics & Computing Studies'),
     sample('Prof. Liza Navarro', 'College of Accountancy'),
-    sample('Engr. Victor Tan', 'College of Engineering and Architecture'),
+    sample('Engr. Victor Tan', 'College of Engineering & Architecture'),
     sample('Prof. Grace Aquino', 'College of Nursing', 'inactive'),
     sample('Dr. Miguel Santos', 'College of Arts and Sciences'),
   ]
